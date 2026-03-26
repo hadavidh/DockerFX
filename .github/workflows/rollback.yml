@@ -1,0 +1,54 @@
+# ════════════════════════════════════════════════════════════
+# Rollback manuel — revenir à la version précédente
+# Déclenchement : GitHub Actions → Run workflow → entrer la version
+# ════════════════════════════════════════════════════════════
+name: Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version à déployer (ex: 20240320-abc1234)'
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    name: Rollback to ${{ inputs.version }}
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+
+    steps:
+      - name: Rollback via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key:      ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/dockerFX
+
+            echo "⏪ Rollback vers la version ${{ inputs.version }}..."
+
+            # Mettre à jour le tag dans .env.deploy
+            sed -i "s/IMAGE_TAG=.*/IMAGE_TAG=${{ inputs.version }}/" .env.deploy 2>/dev/null || \
+              echo "IMAGE_TAG=${{ inputs.version }}" >> .env.deploy
+
+            docker compose pull
+            docker compose up -d --remove-orphans
+
+            sleep 5
+            curl -f http://localhost/health || exit 1
+
+            echo "✅ Rollback terminé — version : ${{ inputs.version }}"
+
+      - name: Notify Telegram
+        if: always()
+        run: |
+          STATUS="${{ job.status == 'success' && '✅ Rollback réussi' || '❌ Rollback échoué' }}"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+            -d chat_id="${{ secrets.TELEGRAM_CHATID }}" \
+            -d text="${STATUS} — version ${{ inputs.version }}"

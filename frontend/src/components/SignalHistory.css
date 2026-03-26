@@ -1,0 +1,127 @@
+.history-wrap {
+  overflow-x    : auto;
+  border-radius : 12px;
+  border        : 1px solid rgba(255,255,255,0.07);
+}
+
+.history-table {
+  width          : 100%;
+  border-collapse: collapse;
+  font-size      : 13px;
+}
+
+.history-table thead tr {
+  background: #12152a;
+}
+
+.history-table th {
+  padding       : 12px 14px;
+  text-align    : left;
+  color         : #8892b0;
+  font-weight   : 600;
+  font-size     : 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space   : nowrap;
+  border-bottom : 1px solid rgba(255,255,255,0.06);
+}
+
+.history-row {
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition   : background 0.15s;
+}
+
+.history-row:hover { background: rgba(255,255,255,0.03); }
+.history-row:last-child { border-bottom: none; }
+
+.history-row.row-new td { animation: fadeIn 0.5s ease; }
+
+@keyframes fadeIn {
+  from { background: rgba(100,200,255,0.08); }
+  to   { background: transparent; }
+}
+
+.history-table td { padding: 11px 14px; vertical-align: middle; }
+
+/* ── Quality badges ── */
+.quality-badge {
+  display       : inline-flex;
+  align-items   : center;
+  gap           : 4px;
+  padding       : 3px 10px;
+  border-radius : 20px;
+  font-size     : 11px;
+  font-weight   : 700;
+  white-space   : nowrap;
+}
+
+.q-excellent { background: rgba(0,230,118,0.15); color: #00e676; border: 1px solid rgba(0,230,118,0.3); }
+.q-bon       { background: rgba(105,240,174,0.12); color: #69f0ae; border: 1px solid rgba(105,240,174,0.25); }
+.q-moyen     { background: rgba(255,215,64,0.12);  color: #ffd740; border: 1px solid rgba(255,215,64,0.3); }
+.q-faible    { background: rgba(255,82,82,0.12);   color: #ff5252; border: 1px solid rgba(255,82,82,0.3); }
+
+/* ── Direction badges ── */
+.dir-badge {
+  display       : inline-block;
+  padding       : 3px 10px;
+  border-radius : 20px;
+  font-size     : 12px;
+  font-weight   : 700;
+}
+
+.dir-buy  { background: rgba(0,230,118,0.15);  color: #00e676; }
+.dir-sell { background: rgba(255,82,82,0.15);   color: #ff5252; }
+
+/* ── Cells ── */
+.td-time  { color: #667; font-size: 12px; white-space: nowrap; }
+.td-pair  { font-weight: 700; color: #c8d0f0; letter-spacing: 0.3px; }
+.td-tf    { color: #7788aa; font-size: 11px; }
+.td-prob  { min-width: 90px; }
+.td-price { font-family: monospace; font-size: 12px; white-space: nowrap; }
+
+.entry-val { color: #c8d0f0; }
+.sl-val    { color: #ff7070; }
+.tp-val    { color: #4cef94; }
+
+/* ── Prob cell ── */
+.prob-cell {
+  display       : flex;
+  flex-direction: column;
+  gap           : 3px;
+}
+
+.prob-num {
+  font-size  : 13px;
+  font-weight: 700;
+}
+
+.mini-bar {
+  height       : 3px;
+  background   : rgba(255,255,255,0.07);
+  border-radius: 3px;
+  overflow     : hidden;
+}
+
+.mini-bar-fill {
+  height        : 100%;
+  border-radius : 3px;
+  transition    : width 0.5s ease;
+}
+
+.bar-buy  { background: linear-gradient(90deg, #00b09b, #00e676); }
+.bar-sell { background: linear-gradient(90deg, #ff416c, #ff4b2b); }
+
+/* ── Empty state ── */
+.history-empty {
+  display        : flex;
+  flex-direction : column;
+  align-items    : center;
+  justify-content: center;
+  padding        : 60px 20px;
+  color          : #445;
+  gap            : 8px;
+}
+
+.history-empty span { font-size: 40px; }
+.history-empty p    { font-size: 14px; color: #556; margin: 0; }
+.history-empty-sub  { font-size: 12px !important; color: #445 !important; }
