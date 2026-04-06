@@ -13,6 +13,9 @@ services:
       CTRADER_CLIENT_SECRET:  ${CTRADER_CLIENT_SECRET:-}
       CTRADER_ACCESS_TOKEN:   ${CTRADER_ACCESS_TOKEN:-}
       CTRADER_ACCOUNT_ID:     ${CTRADER_ACCOUNT_ID:-}
+      CTRADER_HOST:           ${CTRADER_HOST:-live.ctraderapi.com}
+      CTRADER_ACCOUNT_DEMO:   ${CTRADER_ACCOUNT_DEMO:-}
+      CTRADER_ACCOUNT_LIVE:   ${CTRADER_ACCOUNT_LIVE:-}
     expose:
       - "3001"
     healthcheck:

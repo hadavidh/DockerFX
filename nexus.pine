@@ -1,0 +1,344 @@
+// ============================================================
+// NEXUS Pro v2.0 — Hybrid 1H/4H Forex AutoBot
+// ============================================================
+// Charger sur TradingView en timeframe 1H
+// Le script lit le biais 4H automatiquement
+// Compatible backend NEXUS_Pro_v1 (pas de changement server.js)
+// ============================================================
+
+//@version=5
+strategy(
+     title              = "NEXUS Pro v2.0 [1H+4H Hybrid AutoBot]",
+     shorttitle         = "NEXUS v2",
+     overlay            = true,
+     default_qty_type   = strategy.percent_of_equity,
+     default_qty_value  = 1,
+     commission_type    = strategy.commission.percent,
+     commission_value   = 0.003,
+     slippage           = 2,
+     pyramiding         = 0,
+     initial_capital    = 10000,
+     max_labels_count   = 300,
+     max_lines_count    = 300,
+     calc_on_every_tick = false)
+
+// ══════════════════════════════════════════════════════════════
+// INPUTS
+// ══════════════════════════════════════════════════════════════
+grp1 = "BIAIS 4H"
+ema4hFast = input.int(50,  "EMA 50 (4H)",  minval=20, maxval=100, group=grp1)
+ema4hSlow = input.int(200, "EMA 200 (4H)", minval=100,maxval=500, group=grp1)
+adx4hLen  = input.int(14,  "ADX periode",  minval=5,  maxval=30,  group=grp1)
+adx4hMin  = input.int(18,  "ADX min (4H)", minval=12, maxval=35,  group=grp1)
+adx4hMax  = input.int(65,  "ADX max (4H)", minval=40, maxval=100, group=grp1)
+
+grp2 = "ENTREE 1H"
+ema1hLen  = input.int(20,    "EMA 20 (1H)",       minval=5,  maxval=50,  group=grp2)
+stPeriod  = input.int(10,    "SuperTrend periode", minval=5,  maxval=20,  group=grp2)
+stMult    = input.float(1.5, "SuperTrend mult",    minval=1.0,maxval=3.0, step=0.1, group=grp2)
+rsiLen    = input.int(14,    "RSI periode",        minval=5,  maxval=30,  group=grp2)
+rsiBullMin= input.int(48,    "RSI min BUY",        minval=40, maxval=60,  group=grp2)
+rsiBearMax= input.int(52,    "RSI max SELL",       minval=40, maxval=60,  group=grp2)
+
+grp3 = "RISK MANAGEMENT"
+atrLen    = input.int(14,    "ATR periode",       minval=5,   maxval=30,  group=grp3)
+slAtrMult = input.float(1.2, "SL x ATR",          minval=0.5, maxval=3.0, step=0.1, group=grp3)
+tp1Mult   = input.float(1.5, "TP1 x ATR (50%)",   minval=0.5, maxval=4.0, step=0.1, group=grp3)
+tp2Mult   = input.float(2.5, "TP2 x ATR (reste)", minval=1.0, maxval=6.0, step=0.1, group=grp3)
+useTrail  = input.bool(true, "Trailing Stop apres TP1", group=grp3)
+minRR     = input.float(1.3, "RR min AUTO_OK",    minval=1.0, maxval=3.0, step=0.1, group=grp3)
+
+grp4 = "SESSION FILTER"
+useSession  = input.bool(true, "Activer filtre session", group=grp4)
+londonStart = input.int(7,  "London debut (UTC)", minval=0, maxval=23, group=grp4)
+londonEnd   = input.int(12, "London fin (UTC)",   minval=0, maxval=23, group=grp4)
+nyStart     = input.int(13, "NY debut (UTC)",     minval=0, maxval=23, group=grp4)
+nyEnd       = input.int(17, "NY fin (UTC)",       minval=0, maxval=23, group=grp4)
+
+grp5 = "AFFICHAGE"
+showLabels = input.bool(true, "Labels signaux", group=grp5)
+showLevels = input.bool(true, "Lignes SL/TP",  group=grp5)
+showDash   = input.bool(true, "Dashboard",      group=grp5)
+
+// ══════════════════════════════════════════════════════════════
+// BIAIS 4H
+// ══════════════════════════════════════════════════════════════
+
+// EMA 50 et 200 sur 4H
+h4_ema50  = request.security(syminfo.tickerid, "240", ta.ema(close, ema4hFast), lookahead=barmerge.lookahead_off)
+h4_ema200 = request.security(syminfo.tickerid, "240", ta.ema(close, ema4hSlow), lookahead=barmerge.lookahead_off)
+
+// ADX + DI sur 4H — décomposition directe du tuple
+[h4_diPlus, h4_diMinus, h4_adxVal] = request.security(syminfo.tickerid, "240",
+     ta.dmi(adx4hLen, adx4hLen), lookahead=barmerge.lookahead_off)
+
+// Biais 4H calculé
+h4_bull  = h4_ema50 > h4_ema200 and h4_diPlus > h4_diMinus
+h4_bear  = h4_ema50 < h4_ema200 and h4_diMinus > h4_diPlus
+h4_adxOk = h4_adxVal >= adx4hMin and h4_adxVal <= adx4hMax
+
+// ══════════════════════════════════════════════════════════════
+// INDICATEURS 1H
+// ══════════════════════════════════════════════════════════════
+ema1h  = ta.ema(close, ema1hLen)
+atrVal = ta.atr(atrLen)
+rsiVal = ta.rsi(close, rsiLen)
+
+[stVal, stDir] = ta.supertrend(stMult, stPeriod)
+stBull = stDir < 0
+stBear = stDir > 0
+
+stFlipBull = stBull and not stBull[1]
+stFlipBear = stBear and not stBear[1]
+
+// Session
+h         = hour(time, "UTC")
+inLondon  = h >= londonStart and h < londonEnd
+inNY      = h >= nyStart     and h < nyEnd
+inSession = useSession ? (inLondon or inNY) : true
+
+// ══════════════════════════════════════════════════════════════
+// SIGNAUX
+// ══════════════════════════════════════════════════════════════
+nexusLong = h4_bull
+         and h4_adxOk
+         and stFlipBull
+         and close > ema1h
+         and rsiVal >= rsiBullMin
+         and inSession
+         and barstate.isconfirmed
+
+nexusShort = h4_bear
+          and h4_adxOk
+          and stFlipBear
+          and close < ema1h
+          and rsiVal <= rsiBearMax
+          and inSession
+          and barstate.isconfirmed
+
+// ══════════════════════════════════════════════════════════════
+// SL / TP
+// ══════════════════════════════════════════════════════════════
+longSL  = close - atrVal * slAtrMult
+longTP1 = close + atrVal * tp1Mult
+longTP2 = close + atrVal * tp2Mult
+
+shortSL  = close + atrVal * slAtrMult
+shortTP1 = close - atrVal * tp1Mult
+shortTP2 = close - atrVal * tp2Mult
+
+rrLong  = (longTP2  - close) / math.max(close  - longSL,  0.000001)
+rrShort = (close - shortTP2) / math.max(shortSL - close, 0.000001)
+
+autoOkLong  = rrLong  >= minRR
+autoOkShort = rrShort >= minRR
+
+// ══════════════════════════════════════════════════════════════
+// SCORE
+// ══════════════════════════════════════════════════════════════
+f_score(rr, adx4h, rsiV, isBull) =>
+    s = 0.0
+    s := s + math.min(25.0, (rr / 2.5) * 25.0)
+    s := s + math.min(25.0, math.max(0.0, ((adx4h - adx4hMin) / 25.0) * 25.0))
+    rc = isBull
+         ? math.min(25.0, math.max(0.0, ((rsiV - 48.0) / 32.0) * 25.0))
+         : math.min(25.0, math.max(0.0, ((52.0 - rsiV) / 32.0) * 25.0))
+    s := s + rc
+    s := s + ((isBull ? h4_bull : h4_bear) ? 25.0 : 0.0)
+    math.round(math.min(100.0, math.max(0.0, s)))
+
+scoreLong  = f_score(rrLong,  h4_adxVal, rsiVal, true)
+scoreShort = f_score(rrShort, h4_adxVal, rsiVal, false)
+
+// ══════════════════════════════════════════════════════════════
+// ORDERS
+// ══════════════════════════════════════════════════════════════
+var float entryPx  = na
+var float activeSL = na
+var float activeT1 = na
+var float activeT2 = na
+var bool  tp1Done  = false
+var bool  posLong  = false
+var bool  posShort = false
+
+if nexusLong and strategy.position_size == 0
+    strategy.entry("NX_LONG", strategy.long)
+    entryPx  := close
+    activeSL := longSL
+    activeT1 := longTP1
+    activeT2 := longTP2
+    tp1Done  := false
+    posLong  := true
+    posShort := false
+
+if nexusShort and strategy.position_size == 0
+    strategy.entry("NX_SHORT", strategy.short)
+    entryPx  := close
+    activeSL := shortSL
+    activeT1 := shortTP1
+    activeT2 := shortTP2
+    tp1Done  := false
+    posLong  := false
+    posShort := true
+
+if strategy.position_size > 0 and posLong and not tp1Done
+    if high >= activeT1
+        strategy.close("NX_LONG", qty_percent=50, comment="TP1")
+        activeSL := entryPx
+        tp1Done  := true
+
+if strategy.position_size < 0 and posShort and not tp1Done
+    if low <= activeT1
+        strategy.close("NX_SHORT", qty_percent=50, comment="TP1")
+        activeSL := entryPx
+        tp1Done  := true
+
+if strategy.position_size > 0 and posLong
+    fSL = (useTrail and tp1Done) ? math.max(activeSL, stVal) : activeSL
+    strategy.exit("NX_EXIT_L", "NX_LONG", stop=fSL, limit=activeT2)
+
+if strategy.position_size < 0 and posShort
+    fSL = (useTrail and tp1Done) ? math.min(activeSL, stVal) : activeSL
+    strategy.exit("NX_EXIT_S", "NX_SHORT", stop=fSL, limit=activeT2)
+
+if strategy.position_size == 0
+    posLong  := false
+    posShort := false
+    tp1Done  := false
+
+// ══════════════════════════════════════════════════════════════
+// VISUELS
+// ══════════════════════════════════════════════════════════════
+plot(ema1h,    "EMA 20 (1H)",  color=color.new(#F5A623, 0),  linewidth=1)
+plot(h4_ema50, "EMA 50 (4H)",  color=color.new(#2196F3, 20), linewidth=2)
+plot(h4_ema200,"EMA 200 (4H)", color=color.new(#607D8B, 20), linewidth=3)
+
+pF = plot(h4_ema50,  display=display.none)
+pS = plot(h4_ema200, display=display.none)
+fill(pF, pS, color=h4_bull ? color.new(#4CAF50,92) : h4_bear ? color.new(#F44336,92) : color.new(#607D8B,95))
+
+plot(stBull ? stVal : na, "ST Bull", color=color.new(#00C853,0), linewidth=2, style=plot.style_linebr)
+plot(stBear ? stVal : na, "ST Bear", color=color.new(#D50000,0), linewidth=2, style=plot.style_linebr)
+
+plotshape(nexusLong  and autoOkLong,     style=shape.triangleup,   location=location.belowbar, color=color.new(#00C853,0),  size=size.large)
+plotshape(nexusLong  and not autoOkLong, style=shape.triangleup,   location=location.belowbar, color=color.new(#4CAF50,50), size=size.small)
+plotshape(nexusShort and autoOkShort,    style=shape.triangledown, location=location.abovebar, color=color.new(#D50000,0),  size=size.large)
+plotshape(nexusShort and not autoOkShort,style=shape.triangledown, location=location.abovebar, color=color.new(#F44336,50), size=size.small)
+
+barcolor(nexusLong ? color.new(#00C853,40) : nexusShort ? color.new(#D50000,40) : na)
+
+if showLevels and nexusLong
+    line.new(bar_index, longSL,  bar_index+30, longSL,  color=color.new(#FF4560,50), style=line.style_dashed)
+    line.new(bar_index, longTP1, bar_index+30, longTP1, color=color.new(#F5A623,50), style=line.style_dashed)
+    line.new(bar_index, longTP2, bar_index+30, longTP2, color=color.new(#00D97E,50), style=line.style_dashed, width=2)
+    label.new(bar_index+31, longSL,  "SL",  style=label.style_label_left, color=color.new(#FF4560,70), textcolor=color.white, size=size.tiny)
+    label.new(bar_index+31, longTP1, "TP1", style=label.style_label_left, color=color.new(#F5A623,70), textcolor=color.white, size=size.tiny)
+    label.new(bar_index+31, longTP2, "TP2", style=label.style_label_left, color=color.new(#00D97E,70), textcolor=color.white, size=size.tiny)
+
+if showLevels and nexusShort
+    line.new(bar_index, shortSL,  bar_index+30, shortSL,  color=color.new(#FF4560,50), style=line.style_dashed)
+    line.new(bar_index, shortTP1, bar_index+30, shortTP1, color=color.new(#F5A623,50), style=line.style_dashed)
+    line.new(bar_index, shortTP2, bar_index+30, shortTP2, color=color.new(#00D97E,50), style=line.style_dashed, width=2)
+    label.new(bar_index+31, shortSL,  "SL",  style=label.style_label_left, color=color.new(#FF4560,70), textcolor=color.white, size=size.tiny)
+    label.new(bar_index+31, shortTP1, "TP1", style=label.style_label_left, color=color.new(#F5A623,70), textcolor=color.white, size=size.tiny)
+    label.new(bar_index+31, shortTP2, "TP2", style=label.style_label_left, color=color.new(#00D97E,70), textcolor=color.white, size=size.tiny)
+
+if showLabels and nexusLong and barstate.isconfirmed
+    lbl = (autoOkLong ? "AUTO OK" : "RR faible") + "\nBUY " + syminfo.ticker +
+         "\nEntry:" + str.tostring(math.round(close   *100000)/100000) +
+         "\nSL   :" + str.tostring(math.round(longSL  *100000)/100000) +
+         "\nTP1  :" + str.tostring(math.round(longTP1 *100000)/100000) +
+         "\nTP2  :" + str.tostring(math.round(longTP2 *100000)/100000) +
+         "\nRR   :1:" + str.tostring(math.round(rrLong*100)/100) +
+         "\nADX4H:" + str.tostring(math.round(h4_adxVal)) +
+         "\nScore:" + str.tostring(scoreLong) + "/100"
+    label.new(bar_index, low - atrVal*2.5, lbl,
+         style=label.style_label_up,
+         color=autoOkLong ? color.new(#00C853,10) : color.new(#607D8B,25),
+         textcolor=color.white, size=size.small)
+
+if showLabels and nexusShort and barstate.isconfirmed
+    lbl = (autoOkShort ? "AUTO OK" : "RR faible") + "\nSELL " + syminfo.ticker +
+         "\nEntry:" + str.tostring(math.round(close    *100000)/100000) +
+         "\nSL   :" + str.tostring(math.round(shortSL  *100000)/100000) +
+         "\nTP1  :" + str.tostring(math.round(shortTP1 *100000)/100000) +
+         "\nTP2  :" + str.tostring(math.round(shortTP2 *100000)/100000) +
+         "\nRR   :1:" + str.tostring(math.round(rrShort*100)/100) +
+         "\nADX4H:" + str.tostring(math.round(h4_adxVal)) +
+         "\nScore:" + str.tostring(scoreShort) + "/100"
+    label.new(bar_index, high + atrVal*2.5, lbl,
+         style=label.style_label_down,
+         color=autoOkShort ? color.new(#D50000,10) : color.new(#607D8B,25),
+         textcolor=color.white, size=size.small)
+
+// Dashboard
+if showDash
+    var table dash = table.new(position.top_right, 2, 9,
+         bgcolor=color.new(#0F172A,5), border_color=color.new(#334155,80), border_width=1,
+         frame_color=color.new(#3b82f6,50), frame_width=1)
+    if barstate.islast
+        table.cell(dash,0,0,"NEXUS v2 [1H+4H]", text_color=#3b82f6, text_size=size.small, bgcolor=color.new(#1E293B,0), text_halign=text.align_center)
+        table.cell(dash,1,0, syminfo.ticker,      text_color=#94a3b8, text_size=size.small, bgcolor=color.new(#1E293B,0), text_halign=text.align_center)
+        table.cell(dash,0,1,"4H Bias",  text_color=#64748b, text_size=size.tiny)
+        table.cell(dash,1,1, h4_bull?"BULL":h4_bear?"BEAR":"NEUTRE", text_color=h4_bull?#00d97e:h4_bear?#ff4560:#f5a623, text_size=size.tiny)
+        table.cell(dash,0,2,"4H ADX",   text_color=#64748b, text_size=size.tiny)
+        table.cell(dash,1,2, str.tostring(math.round(h4_adxVal)) + (h4_adxOk?" OK":" RANGE"), text_color=h4_adxOk?#00d97e:#f5a623, text_size=size.tiny)
+        table.cell(dash,0,3,"4H DI+/-", text_color=#64748b, text_size=size.tiny)
+        table.cell(dash,1,3, str.tostring(math.round(h4_diPlus)) + "/" + str.tostring(math.round(h4_diMinus)), text_color=h4_diPlus>h4_diMinus?#00d97e:#ff4560, text_size=size.tiny)
+        table.cell(dash,0,4,"1H ST",    text_color=#64748b, text_size=size.tiny)
+        table.cell(dash,1,4, stBull?"BULL":"BEAR", text_color=stBull?#00d97e:#ff4560, text_size=size.tiny)
+        table.cell(dash,0,5,"1H RSI",   text_color=#64748b, text_size=size.tiny)
+        table.cell(dash,1,5, str.tostring(math.round(rsiVal)), text_color=rsiVal>55?#00d97e:rsiVal<45?#ff4560:#f5a623, text_size=size.tiny)
+        table.cell(dash,0,6,"1H EMA20", text_color=#64748b, text_size=size.tiny)
+        table.cell(dash,1,6, close>ema1h?"ABOVE":"BELOW", text_color=close>ema1h?#00d97e:#ff4560, text_size=size.tiny)
+        table.cell(dash,0,7,"Session",  text_color=#64748b, text_size=size.tiny)
+        table.cell(dash,1,7, inSession?(inLondon?"LONDON":"NEW YORK"):"FERME", text_color=inSession?#00d97e:#64748b, text_size=size.tiny)
+        table.cell(dash,0,8,"ATR 1H",   text_color=#64748b, text_size=size.tiny)
+        table.cell(dash,1,8, str.tostring(math.round(atrVal*100000)/100000), text_color=#94a3b8, text_size=size.tiny)
+
+// ══════════════════════════════════════════════════════════════
+// ALERTES WEBHOOK
+// ══════════════════════════════════════════════════════════════
+if nexusLong
+    qualL = scoreLong >= 80 ? "EXCELLENT" : scoreLong >= 60 ? "BON" : "MOYEN"
+    p    = syminfo.ticker
+    pr   = str.tostring(math.round(close   *100000)/100000)
+    sl   = str.tostring(math.round(longSL  *100000)/100000)
+    tp   = str.tostring(math.round(longTP2 *100000)/100000)
+    tp1  = str.tostring(math.round(longTP1 *100000)/100000)
+    rr   = str.tostring(math.round(rrLong  *100)/100)
+    sc   = str.tostring(scoreLong)
+    adxS = str.tostring(math.round(h4_adxVal))
+    rsiS = str.tostring(math.round(rsiVal))
+    aok  = autoOkLong ? "true" : "false"
+
+    msg  = '{"pair":"' + p + '","strategy":"NEXUS_Pro_v1","tf":"60","action":"BUY"'
+    msg := msg + ',"price":"' + pr + '","sl":"' + sl + '","tp":"' + tp + '"'
+    msg := msg + ',"tp_reel":"' + tp + '","tp1":"' + tp1 + '","rr_reel":"' + rr + '"'
+    msg := msg + ',"score":' + sc + ',"auto_ok":' + aok + ',"prob":"' + sc + '"'
+    msg := msg + ',"quality":"' + qualL + '","signal":"NEXUS_TREND_BULL"'
+    msg := msg + ',"adx":' + adxS + ',"rsi":' + rsiS + ',"entry_type":"1H_4H_Hybrid"}'
+
+    alert(msg, alert.freq_once_per_bar_close)
+
+if nexusShort
+    qualS = scoreShort >= 80 ? "EXCELLENT" : scoreShort >= 60 ? "BON" : "MOYEN"
+    p    = syminfo.ticker
+    pr   = str.tostring(math.round(close    *100000)/100000)
+    sl   = str.tostring(math.round(shortSL  *100000)/100000)
+    tp   = str.tostring(math.round(shortTP2 *100000)/100000)
+    tp1  = str.tostring(math.round(shortTP1 *100000)/100000)
+    rr   = str.tostring(math.round(rrShort  *100)/100)
+    sc   = str.tostring(scoreShort)
+    adxS = str.tostring(math.round(h4_adxVal))
+    rsiS = str.tostring(math.round(rsiVal))
+    aok  = autoOkShort ? "true" : "false"
+
+    msg  = '{"pair":"' + p + '","strategy":"NEXUS_Pro_v1","tf":"60","action":"SELL"'
+    msg := msg + ',"price":"' + pr + '","sl":"' + sl + '","tp":"' + tp + '"'
+    msg := msg + ',"tp_reel":"' + tp + '","tp1":"' + tp1 + '","rr_reel":"' + rr + '"'
+    msg := msg + ',"score":' + sc + ',"auto_ok":' + aok + ',"prob":"' + sc + '"'
+    msg := msg + ',"quality":"' + qualS + '","signal":"NEXUS_TREND_BEAR"'
+    msg := msg + ',"adx":' + adxS + ',"rsi":' + rsiS + ',"entry_type":"1H_4H_Hybrid"}'
+
+    alert(msg, alert.freq_once_per_bar_close)

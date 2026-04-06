@@ -1,0 +1,557 @@
+// ============================================================
+// ICT AUTOBOT v1.0 — Robot Full Automatique
+// Basé sur Triple EMA + RSI v2.1 + Filtre Obstacles HTF
+// ============================================================
+// NOUVEAUTÉS vs v2.1 :
+//   ✓ Détection résistances/supports majeurs HTF
+//   ✓ Calcul distance au prochain obstacle
+//   ✓ R:R réel (après déduction des zones bloquantes)
+//   ✓ Score de qualité du trade (0-100)
+//   ✓ Webhook enrichi : r:r_reel, obstacle_dist, trade_score
+//   ✓ Signal "AUTO_OK" uniquement si R:R réel > seuil
+// ============================================================
+
+//@version=5
+strategy(
+     title     = "ICT AutoBot v1.0 [Full Auto Filter]",
+     shorttitle= "AutoBot v1",
+     overlay   = true,
+     default_qty_type   = strategy.percent_of_equity,
+     default_qty_value  = 1,
+     commission_type    = strategy.commission.percent,
+     commission_value   = 0.01,
+     slippage           = 2,
+     pyramiding         = 0,
+     initial_capital    = 10000,
+     max_labels_count   = 200,
+     max_lines_count    = 200,
+     calc_on_every_tick = true)
+
+// ══════════════════════════════════════════════════════
+// INPUTS — EMAs + RSI (identiques à v2.1)
+// ══════════════════════════════════════════════════════
+grp1 = "EMAs"
+emaFastLen = input.int(9,   "EMA Rapide",   minval=1, group=grp1)
+emaMidLen  = input.int(21,  "EMA Milieu",   minval=1, group=grp1)
+emaSlowLen = input.int(200, "EMA 200",      minval=1, group=grp1)
+
+grp2 = "RSI"
+rsiLen = input.int(14, "RSI Periode", minval=2,  group=grp2)
+rsiMid = input.int(50, "RSI Niveau",  minval=30, maxval=70, group=grp2)
+
+grp3 = "Risk Management"
+swingLookback = input.int(20,    "Lookback Swing",   minval=5,  maxval=50,  group=grp3)
+rrRatio       = input.float(2.0, "R:R cible",        minval=1.0,maxval=5.0, step=0.5, group=grp3)
+riskPercent   = input.float(1.0, "Risque (%)",       minval=0.1,maxval=5.0, step=0.1, group=grp3)
+
+grp4 = "Filtre Horaire UTC"
+useTimeFilter = input.bool(false, "Activer filtre horaire", group=grp4)
+sessionStart  = input.int(7,  "Heure debut", minval=0, maxval=23, group=grp4)
+sessionEnd    = input.int(20, "Heure fin",   minval=0, maxval=23, group=grp4)
+
+// ══════════════════════════════════════════════════════
+// ██  INPUTS — FILTRE OBSTACLES (NOUVEAU AutoBot v1)
+// ══════════════════════════════════════════════════════
+grpAuto = "═══ AUTOBOT — FILTRE OBSTACLES ═══"
+
+minRRReel    = input.float(1.5, "R:R réel minimum pour AUTO_OK", step=0.1,
+     minval=1.0, maxval=4.0, group=grpAuto,
+     tooltip="L'ordre auto ne part que si le R:R réel (TP pas bloqué) est >= ce seuil")
+
+obstTolAtr   = input.float(0.3, "Tolérance obstacle (x ATR)", step=0.1,
+     minval=0.1, maxval=2.0, group=grpAuto,
+     tooltip="Zone tampon autour d'un niveau HTF pour considérer qu'il est 'bloquant'")
+
+useHTFLevels = input.bool(true, "Utiliser niveaux HTF (Daily + Weekly)", group=grpAuto)
+usePDHL      = input.bool(true, "Utiliser PDH/PDL comme obstacle",       group=grpAuto)
+useSwingHTF  = input.bool(true, "Utiliser Swing Highs/Lows HTF",         group=grpAuto)
+useRoundNum  = input.bool(true, "Utiliser niveaux ronds (00/50 pips)",   group=grpAuto)
+
+showAutoLabels = input.bool(true, "Afficher labels AutoBot",   group=grpAuto)
+showBlockLines = input.bool(true, "Afficher lignes obstacles", group=grpAuto)
+
+// ══════════════════════════════════════════════════════
+// INDICATEURS DE BASE (identiques à v2.1)
+// ══════════════════════════════════════════════════════
+emaFast = ta.ema(close, emaFastLen)
+emaMid  = ta.ema(close, emaMidLen)
+emaSlow = ta.ema(close, emaSlowLen)
+rsiVal  = ta.rsi(close, rsiLen)
+atrVal  = ta.atr(14)
+
+swingLow  = ta.lowest(low,   swingLookback)
+swingHigh = ta.highest(high, swingLookback)
+
+// ══════════════════════════════════════════════════════
+// MTF CONVERGENCE (identique à v2.1)
+// ══════════════════════════════════════════════════════
+f_bullish(tf) =>
+    e9   = request.security(syminfo.tickerid, tf, ta.ema(close, 9),   lookahead=barmerge.lookahead_off)
+    e21  = request.security(syminfo.tickerid, tf, ta.ema(close, 21),  lookahead=barmerge.lookahead_off)
+    e200 = request.security(syminfo.tickerid, tf, ta.ema(close, 200), lookahead=barmerge.lookahead_off)
+    r    = request.security(syminfo.tickerid, tf, ta.rsi(close, 14),  lookahead=barmerge.lookahead_off)
+    e9 > e21 and e9 > e200 and r > 50
+
+f_bearish(tf) =>
+    e9   = request.security(syminfo.tickerid, tf, ta.ema(close, 9),   lookahead=barmerge.lookahead_off)
+    e21  = request.security(syminfo.tickerid, tf, ta.ema(close, 21),  lookahead=barmerge.lookahead_off)
+    e200 = request.security(syminfo.tickerid, tf, ta.ema(close, 200), lookahead=barmerge.lookahead_off)
+    r    = request.security(syminfo.tickerid, tf, ta.rsi(close, 14),  lookahead=barmerge.lookahead_off)
+    e9 < e21 and e9 < e200 and r < 50
+
+f_status(tf) =>
+    f_bullish(tf) ? 1 : f_bearish(tf) ? -1 : 0
+
+stW  = f_status("W")
+stD  = f_status("D")
+st4H = f_status("240")
+st1H = f_status("60")
+st15 = f_status("15")
+
+f_score(dir) =>
+    scoreW  = stW  == dir ? 5 : stW  == 0 ? 2 : 0
+    scoreD  = stD  == dir ? 4 : stD  == 0 ? 1 : 0
+    score4H = st4H == dir ? 3 : st4H == 0 ? 1 : 0
+    score1H = st1H == dir ? 2 : st1H == 0 ? 1 : 0
+    score15 = st15 == dir ? 1 : st15 == 0 ? 0 : 0
+    total   = scoreW + scoreD + score4H + score1H + score15
+    35 + math.round((total / 15.0) * (88 - 35))
+
+// ══════════════════════════════════════════════════════
+// SIGNAUX 4H / 15M (identiques à v2.1)
+// ══════════════════════════════════════════════════════
+bullTrend  = emaFast > emaSlow and emaMid > emaSlow
+bearTrend  = emaFast < emaSlow and emaMid < emaSlow
+emaBullCross = ta.crossover(emaFast,  emaMid)
+emaBearCross = ta.crossunder(emaFast, emaMid)
+
+buySignal  = emaBullCross and bullTrend and rsiVal > rsiMid and barstate.isconfirmed
+sellSignal = emaBearCross and bearTrend and rsiVal < rsiMid and barstate.isconfirmed
+
+inSession = useTimeFilter ? (hour(time,"UTC") >= sessionStart and hour(time,"UTC") < sessionEnd) : true
+
+buySignalFiltered  = buySignal  and inSession
+sellSignalFiltered = sellSignal and inSession
+
+// SL / TP de base
+var float longSL  = na
+var float longTP  = na
+var float shortSL = na
+var float shortTP = na
+
+if buySignalFiltered
+    longSL := swingLow  - syminfo.mintick * 5
+    longTP := close + (close - longSL) * rrRatio
+
+if sellSignalFiltered
+    shortSL := swingHigh + syminfo.mintick * 5
+    shortTP := close - (shortSL - close) * rrRatio
+
+// ══════════════════════════════════════════════════════
+// ██████  MOTEUR DE DÉTECTION DES OBSTACLES  ██████████
+// ══════════════════════════════════════════════════════
+
+// ── Niveaux HTF ───────────────────────────────────────
+d_high   = request.security(syminfo.tickerid, "D",   high[1], lookahead=barmerge.lookahead_off)
+d_low    = request.security(syminfo.tickerid, "D",   low[1],  lookahead=barmerge.lookahead_off)
+w_high   = request.security(syminfo.tickerid, "W",   high[1], lookahead=barmerge.lookahead_off)
+w_low    = request.security(syminfo.tickerid, "W",   low[1],  lookahead=barmerge.lookahead_off)
+d_close  = request.security(syminfo.tickerid, "D",   close,   lookahead=barmerge.lookahead_off)
+
+// Swing HTF 4H (derniers pivots)
+htf_sh = request.security(syminfo.tickerid, "240", ta.highest(high, 20), lookahead=barmerge.lookahead_off)
+htf_sl = request.security(syminfo.tickerid, "240", ta.lowest(low,   20), lookahead=barmerge.lookahead_off)
+
+// PDH / PDL
+var float pdh = na
+var float pdl = na
+var float curr_dh = na
+var float curr_dl = na
+is_new_day = ta.change(time("D")) != 0
+if is_new_day
+    pdh := curr_dh
+    pdl := curr_dl
+    curr_dh := high
+    curr_dl := low
+else
+    curr_dh := math.max(nz(curr_dh, high), high)
+    curr_dl := math.min(nz(curr_dl, low), low)
+
+// ── Niveaux ronds (psychologiques) ───────────────────
+// Ex: 1.0800, 1.0850, 1.0900 pour EURUSD
+// Pip size selon la paire
+pip_size  = syminfo.mintick * 10
+round_50  = math.round(close / (pip_size * 50)) * (pip_size * 50)
+round_100 = math.round(close / (pip_size * 100)) * (pip_size * 100)
+// Niveaux ronds proches au-dessus et en-dessous
+round_above_50  = round_50  >= close ? round_50  : round_50  + pip_size * 50
+round_below_50  = round_50  <= close ? round_50  : round_50  - pip_size * 50
+round_above_100 = round_100 >= close ? round_100 : round_100 + pip_size * 100
+round_below_100 = round_100 <= close ? round_100 : round_100 - pip_size * 100
+
+// ── Collecte de tous les obstacles potentiels ─────────
+// Pour BUY : obstacles AU-DESSUS du prix (entre entry et TP)
+// Pour SELL : obstacles EN-DESSOUS du prix (entre entry et TP)
+
+f_nearest_obstacle_bull(entry_price, tp_price) =>
+    // Cherche le niveau obstacle le plus bas entre entry et TP
+    nearest = tp_price  // par défaut : pas d'obstacle
+    tol     = atrVal * obstTolAtr
+
+    // Tester chaque niveau
+    levels = array.new_float(0)
+    if useHTFLevels
+        if d_high > entry_price + tol and d_high < tp_price
+            array.push(levels, d_high)
+        if w_high > entry_price + tol and w_high < tp_price
+            array.push(levels, w_high)
+        if htf_sh > entry_price + tol and htf_sh < tp_price
+            array.push(levels, htf_sh)
+    if usePDHL and not na(pdh)
+        if pdh > entry_price + tol and pdh < tp_price
+            array.push(levels, pdh)
+    if useRoundNum
+        if round_above_50  > entry_price + tol and round_above_50  < tp_price
+            array.push(levels, round_above_50)
+        if round_above_100 > entry_price + tol and round_above_100 < tp_price
+            array.push(levels, round_above_100)
+
+    if array.size(levels) > 0
+        nearest := array.min(levels)  // obstacle le plus proche
+
+    nearest
+
+f_nearest_obstacle_bear(entry_price, tp_price) =>
+    nearest = tp_price
+    tol     = atrVal * obstTolAtr
+
+    levels = array.new_float(0)
+    if useHTFLevels
+        if d_low < entry_price - tol and d_low > tp_price
+            array.push(levels, d_low)
+        if w_low < entry_price - tol and w_low > tp_price
+            array.push(levels, w_low)
+        if htf_sl < entry_price - tol and htf_sl > tp_price
+            array.push(levels, htf_sl)
+    if usePDHL and not na(pdl)
+        if pdl < entry_price - tol and pdl > tp_price
+            array.push(levels, pdl)
+    if useRoundNum
+        if round_below_50  < entry_price - tol and round_below_50  > tp_price
+            array.push(levels, round_below_50)
+        if round_below_100 < entry_price - tol and round_below_100 > tp_price
+            array.push(levels, round_below_100)
+
+    if array.size(levels) > 0
+        nearest := array.max(levels)  // obstacle le plus proche (le plus haut)
+
+    nearest
+
+// ── Calcul R:R réel ───────────────────────────────────
+// TP réel = min(TP cible, premier obstacle)
+// R:R réel = (TP réel - Entry) / (Entry - SL)
+
+f_calc_rr_reel_bull(entry, sl, tp) =>
+    tp_reel   = f_nearest_obstacle_bull(entry, tp)
+    sl_dist   = math.abs(entry - sl)
+    tp_dist   = math.abs(tp_reel - entry)
+    rr_reel   = sl_dist > 0 ? tp_dist / sl_dist : 0.0
+    [tp_reel, rr_reel]
+
+f_calc_rr_reel_bear(entry, sl, tp) =>
+    tp_reel   = f_nearest_obstacle_bear(entry, tp)
+    sl_dist   = math.abs(sl - entry)
+    tp_dist   = math.abs(entry - tp_reel)
+    rr_reel   = sl_dist > 0 ? tp_dist / sl_dist : 0.0
+    [tp_reel, rr_reel]
+
+// ── Score de qualité du trade (0-100) ─────────────────
+// Utilisé dans le webhook pour le Risk Manager backend
+f_trade_score(rr_reel, prob, rr_target) =>
+    score = 0.0
+    // R:R réel (40 pts)
+    score := score + math.min(40.0, (rr_reel / rr_target) * 40.0)
+    // Probabilité MTF (40 pts)
+    score := score + math.min(40.0, (prob / 88.0) * 40.0)
+    // Bonus si R:R réel > R:R cible (20 pts)
+    if rr_reel >= rr_target
+        score := score + 20.0
+    math.round(score)
+
+// ══════════════════════════════════════════════════════
+// ██  CALCUL POUR CHAQUE SIGNAL
+// ══════════════════════════════════════════════════════
+probBuy  = f_score(1)
+probSell = f_score(-1)
+
+var float tp_reel_bull  = na
+var float rr_reel_bull  = na
+var float tp_reel_bear  = na
+var float rr_reel_bear  = na
+var int   score_bull    = 0
+var int   score_bear    = 0
+var bool  auto_ok_bull  = false
+var bool  auto_ok_bear  = false
+
+if buySignalFiltered and not na(longSL) and not na(longTP)
+    [tpr, rrr]      = f_calc_rr_reel_bull(close, longSL, longTP)
+    tp_reel_bull   := tpr
+    rr_reel_bull   := rrr
+    score_bull     := f_trade_score(rrr, probBuy, rrRatio)
+    auto_ok_bull   := rrr >= minRRReel
+
+if sellSignalFiltered and not na(shortSL) and not na(shortTP)
+    [tpr, rrr]      = f_calc_rr_reel_bear(close, shortSL, shortTP)
+    tp_reel_bear   := tpr
+    rr_reel_bear   := rrr
+    score_bear     := f_trade_score(rrr, probSell, rrRatio)
+    auto_ok_bear   := rrr >= minRRReel
+
+// ══════════════════════════════════════════════════════
+// ██  SIGNAUX 15MIN (identiques à v2.1)
+// ══════════════════════════════════════════════════════
+h4_ema9   = request.security(syminfo.tickerid, "240", ta.ema(close, emaFastLen), lookahead=barmerge.lookahead_off)
+h4_ema21  = request.security(syminfo.tickerid, "240", ta.ema(close, emaMidLen),  lookahead=barmerge.lookahead_off)
+h4_ema200 = request.security(syminfo.tickerid, "240", ta.ema(close, emaSlowLen), lookahead=barmerge.lookahead_off)
+h4_rsi    = request.security(syminfo.tickerid, "240", ta.rsi(close, rsiLen),     lookahead=barmerge.lookahead_off)
+
+h4_bullTrend = h4_ema9 > h4_ema200 and h4_ema21 > h4_ema200
+h4_bearTrend = h4_ema9 < h4_ema200 and h4_ema21 < h4_ema200
+h4_bullCross = ta.crossover(h4_ema9,  h4_ema21)
+h4_bearCross = ta.crossunder(h4_ema9, h4_ema21)
+h4_buySignal  = h4_bullCross and h4_bullTrend and h4_rsi > rsiMid
+h4_sellSignal = h4_bearCross and h4_bearTrend and h4_rsi < rsiMid
+
+var bool h4_buy_active  = false
+var bool h4_sell_active = false
+if h4_buySignal
+    h4_buy_active  := true
+    h4_sell_active := false
+if h4_sellSignal
+    h4_sell_active := true
+    h4_buy_active  := false
+if h4_buy_active  and not h4_bullTrend
+    h4_buy_active  := false
+if h4_sell_active and not h4_bearTrend
+    h4_sell_active := false
+
+// Entrées 15min (E1 / E2 / E3)
+e1_tol  = atrVal * 0.3
+e1_bull = low  <= emaMid + e1_tol and close > emaMid and close > open and emaFast > emaMid
+e1_bear = high >= emaMid - e1_tol and close < emaMid and close < open and emaFast < emaMid
+e2_bull = ta.crossover(emaFast, emaMid)  and emaFast > emaSlow and rsiVal > rsiMid
+e2_bear = ta.crossunder(emaFast, emaMid) and emaFast < emaSlow and rsiVal < rsiMid
+e3_bull = buySignalFiltered
+e3_bear = sellSignalFiltered
+
+entry1_buy  = h4_buy_active  and e1_bull and barstate.isconfirmed
+entry1_sell = h4_sell_active and e1_bear and barstate.isconfirmed
+entry2_buy  = h4_buy_active  and e2_bull and barstate.isconfirmed
+entry2_sell = h4_sell_active and e2_bear and barstate.isconfirmed
+entry3_buy  = h4_buy_active  and e3_bull
+entry3_sell = h4_sell_active and e3_bear
+
+veryStrong_buy  = entry1_buy  or entry2_buy  or entry3_buy
+veryStrong_sell = entry1_sell or entry2_sell or entry3_sell
+vs_type_buy  = entry3_buy  ? "E3-TripleSignal" : entry2_buy  ? "E2-Cross15M" : "E1-Pullback"
+vs_type_sell = entry3_sell ? "E3-TripleSignal" : entry2_sell ? "E2-Cross15M" : "E1-Pullback"
+
+vs_sl_bull = ta.lowest(low,  8) - syminfo.mintick * 3
+vs_sl_bear = ta.highest(high,8) + syminfo.mintick * 3
+vs_tp_bull = close + (close - vs_sl_bull) * rrRatio
+vs_tp_bear = close - (vs_sl_bear - close) * rrRatio
+
+// R:R réel pour les signaux 15min aussi
+var float vs_tp_reel_bull = na
+var float vs_rr_reel_bull = na
+var float vs_tp_reel_bear = na
+var float vs_rr_reel_bear = na
+var int   vs_score_bull   = 0
+var int   vs_score_bear   = 0
+var bool  vs_auto_ok_bull = false
+var bool  vs_auto_ok_bear = false
+
+if veryStrong_buy
+    [tpr, rrr]       = f_calc_rr_reel_bull(close, vs_sl_bull, vs_tp_bull)
+    vs_tp_reel_bull := tpr
+    vs_rr_reel_bull := rrr
+    vs_score_bull   := f_trade_score(rrr, probBuy, rrRatio)
+    vs_auto_ok_bull := rrr >= minRRReel
+
+if veryStrong_sell
+    [tpr, rrr]       = f_calc_rr_reel_bear(close, vs_sl_bear, vs_tp_bear)
+    vs_tp_reel_bear := tpr
+    vs_rr_reel_bear := rrr
+    vs_score_bear   := f_trade_score(rrr, probSell, rrRatio)
+    vs_auto_ok_bear := rrr >= minRRReel
+
+// ══════════════════════════════════════════════════════
+// ORDRES STRATEGY
+// ══════════════════════════════════════════════════════
+if buySignalFiltered
+    strategy.entry("BUY", strategy.long)
+    strategy.exit("EXIT BUY", "BUY", stop=longSL, limit=not na(tp_reel_bull) ? tp_reel_bull : longTP)
+
+if sellSignalFiltered
+    strategy.entry("SELL", strategy.short)
+    strategy.exit("EXIT SELL", "SELL", stop=shortSL, limit=not na(tp_reel_bear) ? tp_reel_bear : shortTP)
+
+// ══════════════════════════════════════════════════════
+// ██  VISUELS
+// ══════════════════════════════════════════════════════
+// EMAs
+plot(emaSlow, "EMA 200", color=color.new(#607D8B, 0), linewidth=3)
+p2 = plot(emaMid, "EMA 21", color=color.new(#FF9800, 0), linewidth=2)
+p1 = plot(emaFast, "EMA 9",  color=color.new(#2196F3, 0), linewidth=1)
+fill(p1, p2, color=emaFast > emaMid ? color.new(#4CAF50,78) : color.new(#F44336,78))
+
+// Signal 4H
+plotshape(buySignalFiltered,  style=shape.triangleup,   location=location.belowbar, color=color.new(#00C853,0), size=size.large, title="BUY 4H")
+plotshape(sellSignalFiltered, style=shape.triangledown, location=location.abovebar, color=color.new(#D50000,0), size=size.large, title="SELL 4H")
+
+// Signal 15M
+plotshape(veryStrong_buy,  style=shape.diamond, location=location.belowbar, color=color.new(#FFD600,0), size=size.huge,  title="TRÈS FORT BUY 15M")
+plotshape(veryStrong_sell, style=shape.diamond, location=location.abovebar, color=color.new(#FFD600,0), size=size.huge,  title="TRÈS FORT SELL 15M")
+plotshape(veryStrong_buy,  style=shape.arrowup, location=location.belowbar, color=color.new(#FF6F00,0), size=size.large, title="BUY arrow 15M")
+plotshape(veryStrong_sell, style=shape.arrowdown,location=location.abovebar,color=color.new(#FF6F00,0), size=size.large, title="SELL arrow 15M")
+
+// Bougie colorée
+barcolor(veryStrong_buy or veryStrong_sell ? color.new(#FFD600,0) : buySignalFiltered ? color.new(#00C853,0) : sellSignalFiltered ? color.new(#D50000,0) : na)
+
+// ── Ligne TP réel (obstacle) ──────────────────────────
+if showBlockLines and buySignalFiltered and not na(tp_reel_bull) and tp_reel_bull < longTP
+    line.new(bar_index, tp_reel_bull, bar_index + 20, tp_reel_bull,
+         color=color.new(#FF9800, 40), style=line.style_dashed, width=2)
+    label.new(bar_index + 21, tp_reel_bull, "OBSTACLE",
+         style=label.style_label_left, color=color.new(#FF9800, 80),
+         textcolor=color.new(#FF9800,0), size=size.tiny)
+
+if showBlockLines and sellSignalFiltered and not na(tp_reel_bear) and tp_reel_bear > shortTP
+    line.new(bar_index, tp_reel_bear, bar_index + 20, tp_reel_bear,
+         color=color.new(#FF9800, 40), style=line.style_dashed, width=2)
+    label.new(bar_index + 21, tp_reel_bear, "OBSTACLE",
+         style=label.style_label_left, color=color.new(#FF9800, 80),
+         textcolor=color.new(#FF9800,0), size=size.tiny)
+
+// ── Labels AutoBot ────────────────────────────────────
+auto_color_bull = auto_ok_bull ? color.new(#00C853, 0) : color.new(#FF6F00, 0)
+auto_color_bear = auto_ok_bear ? color.new(#D50000, 0) : color.new(#FF6F00, 0)
+
+if showAutoLabels and buySignalFiltered and barstate.isconfirmed
+    rr_str   = str.tostring(math.round(nz(rr_reel_bull,0) * 100) / 100)
+    ok_str   = auto_ok_bull ? "✅ AUTO OK" : "⛔ BLOQUÉ (R:R faible)"
+    lbl_txt  = ok_str + "\n" +
+         "▲ BUY — " + syminfo.ticker + "\n" +
+         "Entry    : " + str.tostring(math.round(close, 5)) + "\n" +
+         "SL       : " + str.tostring(math.round(longSL, 5)) + "\n" +
+         "TP cible : " + str.tostring(math.round(longTP, 5)) + "\n" +
+         "TP réel  : " + str.tostring(math.round(nz(tp_reel_bull, longTP), 5)) + "\n" +
+         "R:R réel : 1:" + rr_str + "\n" +
+         "Score    : " + str.tostring(score_bull) + "/100"
+    label.new(bar_index, low - atrVal * 1.8, lbl_txt,
+         style=label.style_label_up,
+         color=auto_ok_bull ? color.new(#00C853, 10) : color.new(#FF6F00, 10),
+         textcolor=auto_ok_bull ? color.white : color.new(#FF6F00, 0),
+         size=size.normal)
+
+if showAutoLabels and sellSignalFiltered and barstate.isconfirmed
+    rr_str   = str.tostring(math.round(nz(rr_reel_bear,0) * 100) / 100)
+    ok_str   = auto_ok_bear ? "✅ AUTO OK" : "⛔ BLOQUÉ (R:R faible)"
+    lbl_txt  = ok_str + "\n" +
+         "▼ SELL — " + syminfo.ticker + "\n" +
+         "Entry    : " + str.tostring(math.round(close, 5)) + "\n" +
+         "SL       : " + str.tostring(math.round(shortSL, 5)) + "\n" +
+         "TP cible : " + str.tostring(math.round(shortTP, 5)) + "\n" +
+         "TP réel  : " + str.tostring(math.round(nz(tp_reel_bear, shortTP), 5)) + "\n" +
+         "R:R réel : 1:" + rr_str + "\n" +
+         "Score    : " + str.tostring(score_bear) + "/100"
+    label.new(bar_index, high + atrVal * 1.8, lbl_txt,
+         style=label.style_label_down,
+         color=auto_ok_bear ? color.new(#D50000, 10) : color.new(#FF6F00, 10),
+         textcolor=auto_ok_bear ? color.white : color.new(#FF6F00, 0),
+         size=size.normal)
+
+// ══════════════════════════════════════════════════════
+// ██  ALERTES WEBHOOK — JSON enrichi AutoBot v1
+// ══════════════════════════════════════════════════════
+// Le champ "auto_ok" permet au backend de décider
+// d'envoyer ou refuser l'ordre automatiquement
+
+qualBuy  = probBuy  >= 80 ? "EXCELLENT" : probBuy  >= 70 ? "BON" : probBuy  >= 60 ? "MOYEN" : "FAIBLE"
+qualSell = probSell >= 80 ? "EXCELLENT" : probSell >= 70 ? "BON" : probSell >= 60 ? "MOYEN" : "FAIBLE"
+
+// ── Signal BUY 4H ─────────────────────────────────────
+if buySignalFiltered
+    alert(
+         '{"pair":"'       + syminfo.ticker +
+         '","tf":"'        + str.tostring(timeframe.period) +
+         '","action":"BUY"' +
+         ',"price":"'      + str.tostring(math.round(close, 5)) +
+         '","sl":"'        + str.tostring(math.round(longSL, 5)) +
+         '","tp":"'        + str.tostring(math.round(longTP, 5)) +
+         '","tp_reel":"'   + str.tostring(math.round(nz(tp_reel_bull, longTP), 5)) +
+         '","rr_reel":"'   + str.tostring(math.round(nz(rr_reel_bull, 0) * 100) / 100) +
+         '","score":'      + str.tostring(score_bull) +
+         ',"auto_ok":'     + (auto_ok_bull ? "true" : "false") +
+         ',"prob":"'       + str.tostring(probBuy) +
+         '","quality":"'   + qualBuy +
+         '","signal":"ICT_CONVERGENCE"}'
+         , alert.freq_once_per_bar_close)
+
+// ── Signal SELL 4H ────────────────────────────────────
+if sellSignalFiltered
+    alert(
+         '{"pair":"'       + syminfo.ticker +
+         '","tf":"'        + str.tostring(timeframe.period) +
+         '","action":"SELL"' +
+         ',"price":"'      + str.tostring(math.round(close, 5)) +
+         '","sl":"'        + str.tostring(math.round(shortSL, 5)) +
+         '","tp":"'        + str.tostring(math.round(shortTP, 5)) +
+         '","tp_reel":"'   + str.tostring(math.round(nz(tp_reel_bear, shortTP), 5)) +
+         '","rr_reel":"'   + str.tostring(math.round(nz(rr_reel_bear, 0) * 100) / 100) +
+         '","score":'      + str.tostring(score_bear) +
+         ',"auto_ok":'     + (auto_ok_bear ? "true" : "false") +
+         ',"prob":"'       + str.tostring(probSell) +
+         '","quality":"'   + qualSell +
+         '","signal":"ICT_CONVERGENCE"}'
+         , alert.freq_once_per_bar_close)
+
+// ── Signal TRÈS FORT 15M BUY ──────────────────────────
+if veryStrong_buy
+    alert(
+         '{"pair":"'       + syminfo.ticker +
+         '","tf":"15"' +
+         ',"action":"BUY"' +
+         ',"price":"'      + str.tostring(math.round(close, 5)) +
+         '","sl":"'        + str.tostring(math.round(vs_sl_bull, 5)) +
+         '","tp":"'        + str.tostring(math.round(vs_tp_bull, 5)) +
+         '","tp_reel":"'   + str.tostring(math.round(nz(vs_tp_reel_bull, vs_tp_bull), 5)) +
+         '","rr_reel":"'   + str.tostring(math.round(nz(vs_rr_reel_bull, 0) * 100) / 100) +
+         '","score":'      + str.tostring(vs_score_bull) +
+         ',"auto_ok":'     + (vs_auto_ok_bull ? "true" : "false") +
+         ',"prob":"95"' +
+         ',"quality":"SIGNAL_TRES_FORT_15M"' +
+         ',"signal":"SIGNAL_TRES_FORT_15M"' +
+         ',"entry_type":"' + vs_type_buy +
+         '","bias4H":"BUY"}'
+         , alert.freq_once_per_bar_close)
+
+// ── Signal TRÈS FORT 15M SELL ─────────────────────────
+if veryStrong_sell
+    alert(
+         '{"pair":"'       + syminfo.ticker +
+         '","tf":"15"' +
+         ',"action":"SELL"' +
+         ',"price":"'      + str.tostring(math.round(close, 5)) +
+         '","sl":"'        + str.tostring(math.round(vs_sl_bear, 5)) +
+         '","tp":"'        + str.tostring(math.round(vs_tp_bear, 5)) +
+         '","tp_reel":"'   + str.tostring(math.round(nz(vs_tp_reel_bear, vs_tp_bear), 5)) +
+         '","rr_reel":"'   + str.tostring(math.round(nz(vs_rr_reel_bear, 0) * 100) / 100) +
+         '","score":'      + str.tostring(vs_score_bear) +
+         ',"auto_ok":'     + (vs_auto_ok_bear ? "true" : "false") +
+         ',"prob":"95"' +
+         ',"quality":"SIGNAL_TRES_FORT_15M"' +
+         ',"signal":"SIGNAL_TRES_FORT_15M"' +
+         ',"entry_type":"' + vs_type_sell +
+         '","bias4H":"SELL"}'
+         , alert.freq_once_per_bar_close)

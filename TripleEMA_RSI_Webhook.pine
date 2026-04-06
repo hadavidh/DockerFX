@@ -1,0 +1,618 @@
+// ============================================================
+// STRATEGIE : Triple EMA + RSI Forex - Signal BUY/SELL
+// Version    : 2.1 - MTF + Signaux TRÈS FORTS 15min
+// ============================================================
+
+//@version=5
+strategy(title="Triple EMA + RSI - Forex v2.1 [15M Entries]", shorttitle="EMA+RSI v2.1", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=1, commission_type=strategy.commission.percent, commission_value=0.01, slippage=2, pyramiding=0, initial_capital=10000, max_labels_count=200, max_lines_count=200, calc_on_every_tick=true)
+
+// ══════════════════════════════════════════════════════
+// INPUTS
+// ══════════════════════════════════════════════════════
+grp1 = "EMAs"
+emaFastLen = input.int(9,   "EMA Rapide",                  minval=1, group=grp1)
+emaMidLen  = input.int(21,  "EMA Milieu",                  minval=1, group=grp1)
+emaSlowLen = input.int(200, "EMA Lente (Filtre Tendance)", minval=1, group=grp1)
+
+grp2 = "RSI"
+rsiLen = input.int(14, "RSI Periode", minval=2, group=grp2)
+rsiMid = input.int(50, "RSI Niveau",  minval=30, maxval=70, group=grp2)
+
+grp3 = "Risk Management"
+swingLookback = input.int(20,    "Lookback Swing (bougies)", minval=5, maxval=50,    group=grp3)
+rrRatio       = input.float(2.0, "Risk/Reward Ratio",        minval=1.0, maxval=5.0, step=0.5, group=grp3)
+riskPercent   = input.float(1.0, "Risque par trade (%)",     minval=0.1, maxval=5.0, step=0.1, group=grp3)
+
+grp4 = "Filtre Horaire UTC"
+useTimeFilter = input.bool(false, "Activer filtre horaire", group=grp4)
+sessionStart  = input.int(7,  "Heure debut session", minval=0, maxval=23, group=grp4)
+sessionEnd    = input.int(20, "Heure fin session",   minval=0, maxval=23, group=grp4)
+
+grp5 = "Affichage"
+showCloud     = input.bool(true,  "Afficher zone EMA 9/21",    group=grp5)
+showLabels    = input.bool(true,  "Afficher labels BUY/SELL",  group=grp5)
+showDashboard = input.bool(true,  "Afficher tableau de bord",  group=grp5)
+showHistory   = input.bool(true,  "Afficher historique trades", group=grp5)
+maxHistRows   = input.int(10,     "Nb trades dans historique", minval=3, maxval=20, group=grp5)
+
+// ══════════════════════════════════════════════════════
+// NOUVEAU — SIGNAUX TRÈS FORTS 15MIN
+// ══════════════════════════════════════════════════════
+grp6 = "═══ SIGNAUX TRÈS FORTS 15MIN ═══"
+show15m       = input.bool(true,  "Afficher signaux TRÈS FORTS 15min", group=grp6)
+e1_tol        = input.float(0.0002, "Tolérance EMA 21 (E1-Pullback)", step=0.0001, group=grp6, tooltip="Distance max entre le bas/haut de la bougie et l'EMA 21")
+showE1        = input.bool(true,  "E1 — Pullback EMA 21",   group=grp6)
+showE2        = input.bool(true,  "E2 — Cross EMA 9/21",    group=grp6)
+showE3        = input.bool(true,  "E3 — Triple Signal 15M", group=grp6)
+
+// ══════════════════════════════════════════════════════
+// INDICATEURS (timeframe courant)
+// ══════════════════════════════════════════════════════
+emaFast = ta.ema(close, emaFastLen)
+emaMid  = ta.ema(close, emaMidLen)
+emaSlow = ta.ema(close, emaSlowLen)
+rsiVal  = ta.rsi(close, rsiLen)
+
+swingLow  = ta.lowest(low,   swingLookback)
+swingHigh = ta.highest(high, swingLookback)
+
+// ══════════════════════════════════════════════════════
+// MULTI-TIMEFRAME CONVERGENCE (existant)
+// ══════════════════════════════════════════════════════
+f_bullish(tf) =>
+    e9   = request.security(syminfo.tickerid, tf, ta.ema(close, 9),   lookahead=barmerge.lookahead_off)
+    e21  = request.security(syminfo.tickerid, tf, ta.ema(close, 21),  lookahead=barmerge.lookahead_off)
+    e200 = request.security(syminfo.tickerid, tf, ta.ema(close, 200), lookahead=barmerge.lookahead_off)
+    r    = request.security(syminfo.tickerid, tf, ta.rsi(close, 14),  lookahead=barmerge.lookahead_off)
+    e9 > e21 and e9 > e200 and r > 50
+
+f_bearish(tf) =>
+    e9   = request.security(syminfo.tickerid, tf, ta.ema(close, 9),   lookahead=barmerge.lookahead_off)
+    e21  = request.security(syminfo.tickerid, tf, ta.ema(close, 21),  lookahead=barmerge.lookahead_off)
+    e200 = request.security(syminfo.tickerid, tf, ta.ema(close, 200), lookahead=barmerge.lookahead_off)
+    r    = request.security(syminfo.tickerid, tf, ta.rsi(close, 14),  lookahead=barmerge.lookahead_off)
+    e9 < e21 and e9 < e200 and r < 50
+
+f_status(tf) =>
+    f_bullish(tf) ? 1 : f_bearish(tf) ? -1 : 0
+
+stW  = f_status("W")
+stD  = f_status("D")
+st4H = f_status("240")
+st1H = f_status("60")
+st15 = f_status("15")
+
+f_score(dir) =>
+    scoreW  = stW  == dir ? 5 : stW  == 0 ? 2 : 0
+    scoreD  = stD  == dir ? 4 : stD  == 0 ? 1 : 0
+    score4H = st4H == dir ? 3 : st4H == 0 ? 1 : 0
+    score1H = st1H == dir ? 2 : st1H == 0 ? 1 : 0
+    score15 = st15 == dir ? 1 : st15 == 0 ? 0 : 0
+    total   = scoreW + scoreD + score4H + score1H + score15
+    35 + math.round((total / 15.0) * (88 - 35))
+
+// ══════════════════════════════════════════════════════
+// SIGNAUX 4H (existant — inchangé)
+// ══════════════════════════════════════════════════════
+bullTrend = emaFast > emaSlow and emaMid > emaSlow
+bearTrend = emaFast < emaSlow and emaMid < emaSlow
+
+emaBullCross = ta.crossover(emaFast,  emaMid)
+emaBearCross = ta.crossunder(emaFast, emaMid)
+
+buySignal  = emaBullCross and bullTrend and rsiVal > rsiMid and barstate.isconfirmed
+sellSignal = emaBearCross and bearTrend and rsiVal < rsiMid and barstate.isconfirmed
+
+inSession = useTimeFilter ? (hour(time, "UTC") >= sessionStart and hour(time, "UTC") < sessionEnd) : true
+
+buySignalFiltered  = buySignal  and inSession
+sellSignalFiltered = sellSignal and inSession
+
+// ══════════════════════════════════════════════════════
+// SL / TP (existant — inchangé)
+// ══════════════════════════════════════════════════════
+var float longSL  = na
+var float longTP  = na
+var float shortSL = na
+var float shortTP = na
+
+if buySignalFiltered
+    longSL := swingLow - syminfo.mintick * 5
+    longTP := close + (close - longSL) * rrRatio
+
+if sellSignalFiltered
+    shortSL := swingHigh + syminfo.mintick * 5
+    shortTP := close - (shortSL - close) * rrRatio
+
+// ══════════════════════════════════════════════════════
+// ORDRES (existant — inchangé)
+// ══════════════════════════════════════════════════════
+if buySignalFiltered
+    strategy.entry("BUY", strategy.long)
+    strategy.exit("EXIT BUY", "BUY", stop=longSL, limit=longTP)
+
+if sellSignalFiltered
+    strategy.entry("SELL", strategy.short)
+    strategy.exit("EXIT SELL", "SELL", stop=shortSL, limit=shortTP)
+
+// ══════════════════════════════════════════════════════
+// HISTORIQUE (existant — inchangé)
+// ══════════════════════════════════════════════════════
+var array<string> hist_dir    = array.new_string()
+var array<float>  hist_entry  = array.new_float()
+var array<float>  hist_sl     = array.new_float()
+var array<float>  hist_tp     = array.new_float()
+var array<float>  hist_result = array.new_float()
+var array<bool>   hist_win    = array.new_bool()
+var array<int>    hist_bar    = array.new_int()
+var array<int>    hist_prob   = array.new_int()
+
+var int   totalTrades = 0
+var int   totalWins   = 0
+var float totalPnl    = 0.0
+
+if buySignalFiltered
+    prob = f_score(1)
+    array.unshift(hist_dir,    "BUY")
+    array.unshift(hist_entry,  close)
+    array.unshift(hist_sl,     longSL)
+    array.unshift(hist_tp,     longTP)
+    array.unshift(hist_result, 0.0)
+    array.unshift(hist_win,    false)
+    array.unshift(hist_bar,    bar_index)
+    array.unshift(hist_prob,   prob)
+
+if sellSignalFiltered
+    prob = f_score(-1)
+    array.unshift(hist_dir,    "SELL")
+    array.unshift(hist_entry,  close)
+    array.unshift(hist_sl,     shortSL)
+    array.unshift(hist_tp,     shortTP)
+    array.unshift(hist_result, 0.0)
+    array.unshift(hist_win,    false)
+    array.unshift(hist_bar,    bar_index)
+    array.unshift(hist_prob,   prob)
+
+if strategy.closedtrades > 0
+    lastEntry = strategy.closedtrades.entry_price(strategy.closedtrades - 1)
+    lastExit  = strategy.closedtrades.exit_price(strategy.closedtrades - 1)
+    lastSize  = strategy.closedtrades.size(strategy.closedtrades - 1)
+    lastPnl   = strategy.closedtrades.profit(strategy.closedtrades - 1)
+    isWin     = lastPnl > 0
+    for i = 0 to array.size(hist_entry) - 1
+        if math.abs(array.get(hist_entry, i) - lastEntry) < syminfo.mintick * 2
+            pipsResult = lastSize > 0 ? (lastExit - lastEntry) / syminfo.mintick / 10 : (lastEntry - lastExit) / syminfo.mintick / 10
+            array.set(hist_result, i, pipsResult)
+            array.set(hist_win,    i, isWin)
+            break
+
+if array.size(hist_dir) > 50
+    array.pop(hist_dir)
+    array.pop(hist_entry)
+    array.pop(hist_sl)
+    array.pop(hist_tp)
+    array.pop(hist_result)
+    array.pop(hist_win)
+    array.pop(hist_bar)
+    array.pop(hist_prob)
+
+totalTrades := strategy.closedtrades
+totalWins   := strategy.wintrades
+totalPnl    := strategy.netprofit
+winRate     = totalTrades > 0 ? math.round(totalWins / totalTrades * 100) : 0
+
+// ══════════════════════════════════════════════════════
+// VISUELS EMAs (existant — inchangé)
+// ══════════════════════════════════════════════════════
+plot(emaSlow, "EMA 200", color=color.new(#607D8B, 0), linewidth=3)
+p2 = plot(emaMid, "EMA 21", color=color.new(#FF9800, 0), linewidth=2)
+p1 = plot(emaFast, "EMA 9", color=color.new(#2196F3, 0), linewidth=1)
+
+cloudColor = showCloud ? (emaFast > emaMid ? color.new(#4CAF50, 78) : color.new(#F44336, 78)) : na
+fill(p1, p2, color=cloudColor, title="Zone EMA 9/21")
+
+preBuy  = emaBullCross and bullTrend and rsiVal > rsiMid
+preSell = emaBearCross and bearTrend and rsiVal < rsiMid
+
+bgcolor(preBuy  and not barstate.isconfirmed ? color.new(#4CAF50, 88) : na)
+bgcolor(preSell and not barstate.isconfirmed ? color.new(#F44336, 88) : na)
+bgcolor(buySignalFiltered  ? color.new(#4CAF50, 72) : na)
+bgcolor(sellSignalFiltered ? color.new(#F44336, 72) : na)
+
+probBuy  = f_score(1)
+probSell = f_score(-1)
+
+plotshape(buySignalFiltered,  title="BUY Signal",  style=shape.triangleup,   location=location.belowbar, color=color.new(#00C853, 0), size=size.large)
+plotshape(sellSignalFiltered, title="SELL Signal", style=shape.triangledown, location=location.abovebar, color=color.new(#D50000, 0), size=size.large)
+plotshape(buySignalFiltered  and probBuy  >= 75, title="BUY Fort",  style=shape.circle, location=location.belowbar, color=color.new(#FFD600, 0), size=size.small, offset=-1)
+plotshape(sellSignalFiltered and probSell >= 75, title="SELL Fort", style=shape.circle, location=location.abovebar, color=color.new(#FFD600, 0), size=size.small, offset=-1)
+
+plot(strategy.position_size > 0 ? longSL  : na, "Long SL",  color=color.new(#F44336, 0), style=plot.style_linebr, linewidth=2)
+plot(strategy.position_size > 0 ? longTP  : na, "Long TP",  color=color.new(#4CAF50, 0), style=plot.style_linebr, linewidth=2)
+plot(strategy.position_size < 0 ? shortSL : na, "Short SL", color=color.new(#F44336, 0), style=plot.style_linebr, linewidth=2)
+plot(strategy.position_size < 0 ? shortTP : na, "Short TP", color=color.new(#4CAF50, 0), style=plot.style_linebr, linewidth=2)
+entryLine = strategy.position_size != 0 ? strategy.position_avg_price : na
+plot(entryLine, "Entree trade", color=color.new(#FFFFFF, 20), style=plot.style_linebr, linewidth=1)
+
+// Plots webhook invisibles (existant — inchangé)
+plot(buySignalFiltered ? probBuy : sellSignalFiltered ? probSell : 0,
+     title="Prob_webhook", display=display.all, color=color.new(color.white, 100))
+plot(buySignalFiltered ? longSL : sellSignalFiltered ? shortSL : na,
+     title="SL_webhook",  display=display.all, color=color.new(color.white, 100))
+plot(buySignalFiltered ? longTP : sellSignalFiltered ? shortTP : na,
+     title="TP_webhook",  display=display.all, color=color.new(color.white, 100))
+
+// ══════════════════════════════════════════════════════
+// LABELS existants (inchangés)
+// ══════════════════════════════════════════════════════
+f_qualite(p) =>
+    p >= 80 ? "EXCELLENT" : p >= 70 ? "BON" : p >= 60 ? "MOYEN" : p >= 50 ? "FAIBLE" : "EVITER"
+
+f_probColor(p) =>
+    p >= 75 ? color.new(color.green, 10) : p >= 60 ? color.new(color.lime, 20) : p >= 50 ? color.new(color.orange, 10) : color.new(color.red, 20)
+
+if showLabels and buySignalFiltered
+    probTxt  = str.tostring(probBuy) + "%"
+    qualTxt  = f_qualite(probBuy)
+    labelCol = probBuy >= 75 ? color.new(#00C853, 0) : color.new(#558B2F, 10)
+    label.new(bar_index, low - (high - low) * 1.2,
+         "BUY " + probTxt + " - " + qualTxt +
+         "\nSL : " + str.tostring(math.round(longSL,  5)) +
+         "\nTP : " + str.tostring(math.round(longTP,   5)),
+         color=labelCol, textcolor=color.white, style=label.style_label_up, size=size.normal)
+
+if showLabels and sellSignalFiltered
+    probTxt  = str.tostring(probSell) + "%"
+    qualTxt  = f_qualite(probSell)
+    labelCol = probSell >= 75 ? color.new(#D50000, 0) : color.new(#B71C1C, 20)
+    label.new(bar_index, high + (high - low) * 1.2,
+         "SELL " + probTxt + " - " + qualTxt +
+         "\nSL : " + str.tostring(math.round(shortSL, 5)) +
+         "\nTP : " + str.tostring(math.round(shortTP,  5)),
+         color=labelCol, textcolor=color.white, style=label.style_label_down, size=size.normal)
+
+// ══════════════════════════════════════════════════════
+// ██████  NOUVEAU — BIAS 4H via request.security  █████
+// ══════════════════════════════════════════════════════
+// Récupère les EMA et RSI sur 4H quelle que soit la TF
+// affichée (fonctionne parfaitement sur 15min)
+
+h4_ema9   = request.security(syminfo.tickerid, "240", ta.ema(close, emaFastLen), lookahead=barmerge.lookahead_off)
+h4_ema21  = request.security(syminfo.tickerid, "240", ta.ema(close, emaMidLen),  lookahead=barmerge.lookahead_off)
+h4_ema200 = request.security(syminfo.tickerid, "240", ta.ema(close, emaSlowLen), lookahead=barmerge.lookahead_off)
+h4_rsi    = request.security(syminfo.tickerid, "240", ta.rsi(close, rsiLen),     lookahead=barmerge.lookahead_off)
+
+// Tendance 4H
+h4_bullTrend = h4_ema9 > h4_ema200 and h4_ema21 > h4_ema200
+h4_bearTrend = h4_ema9 < h4_ema200 and h4_ema21 < h4_ema200
+
+// Croisements EMA 4H
+h4_bullCross = ta.crossover(h4_ema9,  h4_ema21)
+h4_bearCross = ta.crossunder(h4_ema9, h4_ema21)
+
+// Signal 4H BUY / SELL (même logique que le signal principal)
+h4_buySignal  = h4_bullCross and h4_bullTrend and h4_rsi > rsiMid
+h4_sellSignal = h4_bearCross and h4_bearTrend and h4_rsi < rsiMid
+
+// ══════════════════════════════════════════════════════
+// ██████  MÉMORISATION DU BIAS 4H  ████████████████████
+// ══════════════════════════════════════════════════════
+// Une fois un signal 4H déclenché, on le mémorise
+// Il reste actif TANT QUE la tendance 4H est intacte
+// Il s'annule si le prix casse la structure 4H
+
+var bool h4_buy_active  = false
+var bool h4_sell_active = false
+
+// Activer quand signal 4H déclenché
+if h4_buySignal
+    h4_buy_active  := true
+    h4_sell_active := false
+
+if h4_sellSignal
+    h4_sell_active := true
+    h4_buy_active  := false
+
+// Désactiver si la tendance 4H se retourne
+// (prix passe sous les EMAs sur 4H = bias invalide)
+if h4_buy_active and not h4_bullTrend
+    h4_buy_active := false
+
+if h4_sell_active and not h4_bearTrend
+    h4_sell_active := false
+
+// ══════════════════════════════════════════════════════
+// ██████  3 ENTRÉES TRÈS FORTES 15MIN  ████████████████
+// ══════════════════════════════════════════════════════
+
+// ── ENTRÉE 1 : Pullback sur EMA 21 (15min) ───────────
+// Mèche basse (BUY) ou haute (SELL) touche l'EMA 21
+// + clôture dans le sens du 4H
+// + EMA 9 reste de l'autre côté de l'EMA 21 (trend intact)
+
+e1_bull = low  <= emaMid + e1_tol and    // mèche touche EMA 21
+          close > emaMid and              // clôture au-dessus
+          close > open   and              // bougie haussière
+          emaFast > emaMid                // EMA 9 toujours au-dessus
+
+e1_bear = high >= emaMid - e1_tol and
+          close < emaMid and
+          close < open   and
+          emaFast < emaMid
+
+entry1_buy  = showE1 and h4_buy_active  and e1_bull and barstate.isconfirmed
+entry1_sell = showE1 and h4_sell_active and e1_bear and barstate.isconfirmed
+
+// ── ENTRÉE 2 : Croisement EMA 9/21 sur 15min ─────────
+// Mini-signal dans le sens du 4H :
+// EMA 9 croise EMA 21 sur 15min + RSI du bon côté
+
+e2_bull = ta.crossover(emaFast, emaMid)  and emaFast > emaSlow and rsiVal > rsiMid
+e2_bear = ta.crossunder(emaFast, emaMid) and emaFast < emaSlow and rsiVal < rsiMid
+
+entry2_buy  = showE2 and h4_buy_active  and e2_bull and barstate.isconfirmed
+entry2_sell = showE2 and h4_sell_active and e2_bear and barstate.isconfirmed
+
+// ── ENTRÉE 3 : Triple signal complet sur 15min ────────
+// Signal COMPLET Triple EMA + RSI sur 15min
+// DANS LE SENS du signal 4H = confirmation maximale
+// (reprend exactement la logique du signal principal)
+
+entry3_buy  = showE3 and h4_buy_active  and buySignalFiltered
+entry3_sell = showE3 and h4_sell_active and sellSignalFiltered
+
+// ══════════════════════════════════════════════════════
+// ██████  SIGNAL COMBINÉ "TRÈS FORT"  █████████████████
+// ══════════════════════════════════════════════════════
+
+veryStrong_buy  = show15m and (entry1_buy  or entry2_buy  or entry3_buy)
+veryStrong_sell = show15m and (entry1_sell or entry2_sell or entry3_sell)
+
+// Type d'entrée (pour le label et le webhook)
+vs_type_buy  = entry3_buy  ? "E3-TripleSignal" : entry2_buy  ? "E2-Cross15M" : "E1-Pullback"
+vs_type_sell = entry3_sell ? "E3-TripleSignal" : entry2_sell ? "E2-Cross15M" : "E1-Pullback"
+
+// SL / TP pour les signaux 15min (plus serré)
+vs_sl_bull = ta.lowest(low, 8) - syminfo.mintick * 3    // swing low 8 bougies 15min
+vs_sl_bear = ta.highest(high, 8) + syminfo.mintick * 3
+vs_tp_bull = close + (close - vs_sl_bull) * rrRatio
+vs_tp_bear = close - (vs_sl_bear - close) * rrRatio
+
+// ══════════════════════════════════════════════════════
+// ██████  VISUELS TRÈS FORTS 15MIN  ███████████████████
+// Couleur : jaune/or — impossible à confondre avec
+// les signaux 4H verts/rouges
+// ══════════════════════════════════════════════════════
+
+// Flèches doubles (étoile) — très visible
+plotshape(veryStrong_buy,  title="TRÈS FORT BUY 15M",
+     style=shape.diamond,
+     location=location.belowbar,
+     color=color.new(#FFD600, 0),
+     size=size.huge)
+
+plotshape(veryStrong_sell, title="TRÈS FORT SELL 15M",
+     style=shape.diamond,
+     location=location.abovebar,
+     color=color.new(#FFD600, 0),
+     size=size.huge)
+
+// Deuxième shape pour renforcer la visibilité
+plotshape(veryStrong_buy,  title="TRÈS FORT BUY arrow",
+     style=shape.arrowup,
+     location=location.belowbar,
+     color=color.new(#FF6F00, 0),
+     size=size.large)
+
+plotshape(veryStrong_sell, title="TRÈS FORT SELL arrow",
+     style=shape.arrowdown,
+     location=location.abovebar,
+     color=color.new(#FF6F00, 0),
+     size=size.large)
+
+// Fond de bougie orange vif
+barcolor(veryStrong_buy  ? color.new(#FFD600, 0) : veryStrong_sell ? color.new(#FF6F00, 0) : na)
+
+// ── Labels détaillés ──────────────────────────────────
+if show15m and veryStrong_buy and barstate.isconfirmed
+    label.new(bar_index, low - (high - low) * 2.2,
+         "⚡ SIGNAL TRÈS FORT ⚡\n" +
+         "▲ BUY 15MIN\n" +
+         "Type  : " + vs_type_buy + "\n" +
+         "Entry : " + str.tostring(math.round(close, 5)) + "\n" +
+         "SL    : " + str.tostring(math.round(vs_sl_bull, 5)) + "\n" +
+         "TP    : " + str.tostring(math.round(vs_tp_bull, 5)) + "\n" +
+         "Bias 4H validé ✓",
+         style=label.style_label_up,
+         color=color.new(#FFD600, 0),
+         textcolor=color.black,
+         size=size.normal)
+    // Lignes SL/TP pour ce signal 15min
+    line.new(bar_index, vs_sl_bull, bar_index + 15, vs_sl_bull,
+         color=color.new(#FF1744, 50), style=line.style_dotted, width=2)
+    line.new(bar_index, vs_tp_bull, bar_index + 15, vs_tp_bull,
+         color=color.new(#00E676, 50), style=line.style_dotted, width=2)
+
+if show15m and veryStrong_sell and barstate.isconfirmed
+    label.new(bar_index, high + (high - low) * 2.2,
+         "⚡ SIGNAL TRÈS FORT ⚡\n" +
+         "▼ SELL 15MIN\n" +
+         "Type  : " + vs_type_sell + "\n" +
+         "Entry : " + str.tostring(math.round(close, 5)) + "\n" +
+         "SL    : " + str.tostring(math.round(vs_sl_bear, 5)) + "\n" +
+         "TP    : " + str.tostring(math.round(vs_tp_bear, 5)) + "\n" +
+         "Bias 4H validé ✓",
+         style=label.style_label_down,
+         color=color.new(#FFD600, 0),
+         textcolor=color.black,
+         size=size.normal)
+    line.new(bar_index, vs_sl_bear, bar_index + 15, vs_sl_bear,
+         color=color.new(#FF1744, 50), style=line.style_dotted, width=2)
+    line.new(bar_index, vs_tp_bear, bar_index + 15, vs_tp_bear,
+         color=color.new(#00E676, 50), style=line.style_dotted, width=2)
+
+// ══════════════════════════════════════════════════════
+// DASHBOARD (existant — inchangé + 1 ligne ajoutée)
+// ══════════════════════════════════════════════════════
+f_tfColor(st, dir) =>
+    st == dir ? color.new(color.green, 0) : st == 0 ? color.new(color.gray, 0) : color.new(color.red, 0)
+
+curDir = buySignalFiltered ? 1 : sellSignalFiltered ? -1 : strategy.position_size > 0 ? 1 : strategy.position_size < 0 ? -1 : 0
+
+if showDashboard
+    var table dash = table.new(position.top_right, 2, 19,
+         bgcolor=color.new(color.black, 15), border_color=color.new(color.gray, 40), border_width=1)
+
+    dirLabel = curDir == 1 ? 1 : curDir == -1 ? -1 : 0
+
+    table.cell(dash, 0, 0, "ANALYSE MTF",  text_color=color.white, bgcolor=color.new(color.navy, 10), text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 1, 0, "STATUT",       text_color=color.white, bgcolor=color.new(color.navy, 10), text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 1, "Weekly",       text_color=color.silver, text_size=size.small)
+    table.cell(dash, 1, 1, stW  == 1 ? "Bull" : stW  == -1 ? "Bear" : "Neutre", text_color=f_tfColor(stW,  dirLabel != 0 ? dirLabel : stW),  text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 2, "Daily",        text_color=color.silver, text_size=size.small)
+    table.cell(dash, 1, 2, stD  == 1 ? "Bull" : stD  == -1 ? "Bear" : "Neutre", text_color=f_tfColor(stD,  dirLabel != 0 ? dirLabel : stD),  text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 3, "4H",           text_color=color.silver, text_size=size.small)
+    table.cell(dash, 1, 3, st4H == 1 ? "Bull" : st4H == -1 ? "Bear" : "Neutre", text_color=f_tfColor(st4H, dirLabel != 0 ? dirLabel : st4H), text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 4, "1H",           text_color=color.silver, text_size=size.small)
+    table.cell(dash, 1, 4, st1H == 1 ? "Bull" : st1H == -1 ? "Bear" : "Neutre", text_color=f_tfColor(st1H, dirLabel != 0 ? dirLabel : st1H), text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 5, "15min",        text_color=color.silver, text_size=size.small)
+    table.cell(dash, 1, 5, st15 == 1 ? "Bull" : st15 == -1 ? "Bear" : "Neutre", text_color=f_tfColor(st15, dirLabel != 0 ? dirLabel : st15), text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 6, "────────────", text_color=color.new(color.gray, 40), text_size=size.tiny)
+    table.cell(dash, 1, 6, "────────────", text_color=color.new(color.gray, 40), text_size=size.tiny)
+
+    sigStatus = buySignalFiltered ? "BUY" : sellSignalFiltered ? "SELL" : strategy.position_size > 0 ? "LONG actif" : strategy.position_size < 0 ? "SHORT actif" : "Attente"
+    sigColor  = buySignalFiltered or strategy.position_size > 0 ? color.green : sellSignalFiltered or strategy.position_size < 0 ? color.red : color.gray
+    probCur   = buySignalFiltered ? probBuy : sellSignalFiltered ? probSell : strategy.position_size > 0 ? probBuy : strategy.position_size < 0 ? probSell : 0
+
+    table.cell(dash, 0, 7,  "Signal",       text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 7,  sigStatus,      text_color=sigColor,    text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 8,  "Probabilite",  text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 8,  probCur > 0 ? str.tostring(probCur) + "%" : "-", text_color=probCur > 0 ? f_probColor(probCur) : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 9,  "Qualite",      text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 9,  probCur > 0 ? f_qualite(probCur) : "-", text_color=probCur > 0 ? f_probColor(probCur) : color.gray, text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 10, "────────────", text_color=color.new(color.gray, 40), text_size=size.tiny)
+    table.cell(dash, 1, 10, "────────────", text_color=color.new(color.gray, 40), text_size=size.tiny)
+
+    // ── NOUVEAU : statut bias 4H dans le dashboard ──
+    h4_bias_txt = h4_buy_active ? "BULL ✓ actif" : h4_sell_active ? "BEAR ✓ actif" : "En attente"
+    h4_bias_col = h4_buy_active ? color.green : h4_sell_active ? color.red : color.gray
+    table.cell(dash, 0, 11, "Bias 4H",      text_color=color.yellow, text_size=size.small)
+    table.cell(dash, 1, 11, h4_bias_txt,    text_color=h4_bias_col,  text_size=size.small, text_halign=text.align_center)
+    vs_status = veryStrong_buy ? "⚡ BUY 15M" : veryStrong_sell ? "⚡ SELL 15M" : "—"
+    vs_col    = veryStrong_buy ? color.new(#FFD600,0) : veryStrong_sell ? color.new(#FF6F00,0) : color.gray
+    table.cell(dash, 0, 12, "Signal 15M",   text_color=color.yellow, text_size=size.small)
+    table.cell(dash, 1, 12, vs_status,      text_color=vs_col,       text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 13, "────────────", text_color=color.new(color.gray, 40), text_size=size.tiny)
+    table.cell(dash, 1, 13, "────────────", text_color=color.new(color.gray, 40), text_size=size.tiny)
+
+    table.cell(dash, 0, 14, "Trades total", text_color=color.silver, text_size=size.small)
+    table.cell(dash, 1, 14, str.tostring(totalTrades), text_color=color.white, text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 15, "Wins/Losses",  text_color=color.silver, text_size=size.small)
+    table.cell(dash, 1, 15, str.tostring(totalWins) + " / " + str.tostring(totalTrades - totalWins), text_color=color.white, text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 16, "Win Rate",     text_color=color.silver, text_size=size.small)
+    table.cell(dash, 1, 16, str.tostring(winRate) + "%", text_color=winRate >= 55 ? color.green : winRate >= 45 ? color.orange : color.red, text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 17, "PnL net",      text_color=color.silver, text_size=size.small)
+    table.cell(dash, 1, 17, str.tostring(math.round(totalPnl, 2)) + "$", text_color=totalPnl >= 0 ? color.green : color.red, text_size=size.small, text_halign=text.align_center)
+    table.cell(dash, 0, 18, "R/R Ratio",    text_color=color.silver, text_size=size.small)
+    table.cell(dash, 1, 18, "1:" + str.tostring(rrRatio), text_color=color.yellow, text_size=size.small, text_halign=text.align_center)
+
+// ══════════════════════════════════════════════════════
+// HISTORIQUE (existant — inchangé)
+// ══════════════════════════════════════════════════════
+if showHistory and barstate.islast
+    nRows = math.min(array.size(hist_dir), maxHistRows)
+    var table hist = table.new(position.bottom_left, 6, nRows + 1,
+         bgcolor=color.new(color.black, 15), border_color=color.new(color.gray, 40), border_width=1)
+
+    hdrBg = color.new(color.navy, 10)
+    table.cell(hist, 0, 0, "Dir",      text_color=color.white, bgcolor=hdrBg, text_size=size.small, text_halign=text.align_center)
+    table.cell(hist, 1, 0, "Entree",   text_color=color.white, bgcolor=hdrBg, text_size=size.small, text_halign=text.align_center)
+    table.cell(hist, 2, 0, "SL",       text_color=color.white, bgcolor=hdrBg, text_size=size.small, text_halign=text.align_center)
+    table.cell(hist, 3, 0, "TP",       text_color=color.white, bgcolor=hdrBg, text_size=size.small, text_halign=text.align_center)
+    table.cell(hist, 4, 0, "Resultat", text_color=color.white, bgcolor=hdrBg, text_size=size.small, text_halign=text.align_center)
+    table.cell(hist, 5, 0, "Proba",    text_color=color.white, bgcolor=hdrBg, text_size=size.small, text_halign=text.align_center)
+
+    for i = 0 to nRows - 1
+        dir     = array.get(hist_dir,    i)
+        entryPx = array.get(hist_entry,  i)
+        slPx    = array.get(hist_sl,     i)
+        tpPx    = array.get(hist_tp,     i)
+        res     = array.get(hist_result, i)
+        win     = array.get(hist_win,    i)
+        prob    = array.get(hist_prob,   i)
+        isBuy   = dir == "BUY"
+        isOpen  = res == 0.0 and array.get(hist_bar, i) == array.get(hist_bar, 0) and i == 0
+        rowBg   = isOpen ? color.new(color.blue, 75) : win ? color.new(color.green, 82) : res != 0.0 ? color.new(color.red, 82) : color.new(color.gray, 85)
+        resStr  = isOpen ? "En cours" : res > 0 ? "+" + str.tostring(math.round(res, 1)) + " p" : str.tostring(math.round(res, 1)) + " p"
+        table.cell(hist, 0, i+1, dir,                                  text_color=isBuy ? color.green : color.red,     bgcolor=rowBg, text_size=size.tiny, text_halign=text.align_center)
+        table.cell(hist, 1, i+1, str.tostring(math.round(entryPx, 5)), text_color=color.white,                         bgcolor=rowBg, text_size=size.tiny, text_halign=text.align_right)
+        table.cell(hist, 2, i+1, str.tostring(math.round(slPx,    5)), text_color=color.new(color.red,   20),          bgcolor=rowBg, text_size=size.tiny, text_halign=text.align_right)
+        table.cell(hist, 3, i+1, str.tostring(math.round(tpPx,    5)), text_color=color.new(color.green, 20),          bgcolor=rowBg, text_size=size.tiny, text_halign=text.align_right)
+        table.cell(hist, 4, i+1, resStr,                                text_color=win ? color.green : res < 0 ? color.red : color.silver, bgcolor=rowBg, text_size=size.tiny, text_halign=text.align_center)
+        table.cell(hist, 5, i+1, str.tostring(prob) + "%",             text_color=f_probColor(prob),                   bgcolor=rowBg, text_size=size.tiny, text_halign=text.align_center)
+
+// ══════════════════════════════════════════════════════
+// ALERTES WEBHOOK — existantes + TRÈS FORT 15M
+// ══════════════════════════════════════════════════════
+
+qualBuy  = probBuy  >= 80 ? "EXCELLENT" : probBuy  >= 70 ? "BON" : probBuy  >= 60 ? "MOYEN" : "FAIBLE"
+qualSell = probSell >= 80 ? "EXCELLENT" : probSell >= 70 ? "BON" : probSell >= 60 ? "MOYEN" : "FAIBLE"
+
+// ── Alertes 4H originales (inchangées) ───────────────
+if buySignalFiltered
+    alert(
+         '{"pair":"' + syminfo.ticker +
+         '","tf":"' + str.tostring(timeframe.period) +
+         '","action":"BUY"' +
+         ',"price":"' + str.tostring(math.round(close, 5)) +
+         '","sl":"' + str.tostring(math.round(longSL, 5)) +
+         '","tp":"' + str.tostring(math.round(longTP, 5)) +
+         '","prob":"' + str.tostring(probBuy) +
+         '","quality":"' + qualBuy + '"}'
+         , alert.freq_once_per_bar_close)
+
+if sellSignalFiltered
+    alert(
+         '{"pair":"' + syminfo.ticker +
+         '","tf":"' + str.tostring(timeframe.period) +
+         '","action":"SELL"' +
+         ',"price":"' + str.tostring(math.round(close, 5)) +
+         '","sl":"' + str.tostring(math.round(shortSL, 5)) +
+         '","tp":"' + str.tostring(math.round(shortTP, 5)) +
+         '","prob":"' + str.tostring(probSell) +
+         '","quality":"' + qualSell + '"}'
+         , alert.freq_once_per_bar_close)
+
+// ── NOUVELLE ALERTE — Signal TRÈS FORT 15min ─────────
+// JSON distinct : "signal":"SIGNAL_TRES_FORT_15M"
+// SL/TP calculés sur la structure 15min (plus serrés)
+
+if veryStrong_buy
+    alert(
+         '{"pair":"' + syminfo.ticker +
+         '","tf":"15"' +
+         ',"action":"BUY"' +
+         ',"price":"' + str.tostring(math.round(close, 5)) +
+         '","sl":"' + str.tostring(math.round(vs_sl_bull, 5)) +
+         '","tp":"' + str.tostring(math.round(vs_tp_bull, 5)) +
+         '","prob":"95"' +
+         ',"quality":"SIGNAL_TRES_FORT_15M"' +
+         ',"signal":"SIGNAL_TRES_FORT_15M"' +
+         ',"entry_type":"' + vs_type_buy + '"' +
+         ',"bias4H":"BUY"}'
+         , alert.freq_once_per_bar_close)
+
+if veryStrong_sell
+    alert(
+         '{"pair":"' + syminfo.ticker +
+         '","tf":"15"' +
+         ',"action":"SELL"' +
+         ',"price":"' + str.tostring(math.round(close, 5)) +
+         '","sl":"' + str.tostring(math.round(vs_sl_bear, 5)) +
+         '","tp":"' + str.tostring(math.round(vs_tp_bear, 5)) +
+         '","prob":"95"' +
+         ',"quality":"SIGNAL_TRES_FORT_15M"' +
+         ',"signal":"SIGNAL_TRES_FORT_15M"' +
+         ',"entry_type":"' + vs_type_sell + '"' +
+         ',"bias4H":"SELL"}'
+         , alert.freq_once_per_bar_close)

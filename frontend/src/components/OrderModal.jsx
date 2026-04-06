@@ -48,7 +48,8 @@ export default function OrderModal({ state, onClose, onConfirm }) {
   const submit = async () => {
     setLoading(true); setError(null)
     try {
-      const res  = await fetch('/api/order',{method:'POST',headers:{'Content-Type':'application/json'},
+      const tok  = localStorage.getItem('ict_token')||''
+      const res  = await fetch('/api/order',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok},
         body:JSON.stringify({ symbol:pair, action:signal,
           lots:parseFloat(form.lots), sl:parseFloat(form.sl), tp:parseFloat(form.tp),
           comment:`ICT ${isLtf?'15M':'4H'} ${signal} ${pair}${entryType?' '+entryType:''}` })})
