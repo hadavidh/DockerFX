@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E3A5F;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#1E40AF;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+  <!-- Fond arrondi -->
+  <rect width="144" height="144" rx="28.8" ry="28.8" fill="url(#bg)"/>
+  <!-- Lettres FX -->
+  <text
+    x="50%" y="56%"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-family="Arial, sans-serif"
+    font-weight="900"
+    font-size="60.48px"
+    fill="white"
+    letter-spacing="-1"
+  >FX</text>
+  <!-- Point vert (online indicator) -->
+  <circle cx="112.32000000000001" cy="34.56" r="11.52" fill="#00d97e"/>
+</svg>

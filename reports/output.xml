@@ -1,0 +1,2321 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<robot generator="Robot 7.0.1 (Python 3.13.3 on linux)" generated="2026-04-07T11:51:36.773269" rpa="false" schemaversion="5">
+<suite id="s1" name="Dashboard Tests" source="/home/ubuntu/dockerFX/tests/robot/suites/dashboard_tests.robot">
+<kw name="Ouvrir Navigateur" type="SETUP">
+<kw name="New Browser" owner="Browser">
+<msg time="2026-04-07T11:51:36.955338" level="INFO">{"browser": "chromium", "headless": true, "chromiumSandbox": false, "devtools": false, "handleSIGHUP": true, "handleSIGINT": true, "handleSIGTERM": true, "slowMo": 0.0, "timeout": 30000.0, "tracesDir": "/home/ubuntu/dockerFX/reports/browser/traces/f7b45096-c5a7-4b47-99b1-e9fd2a6590b7"}</msg>
+<msg time="2026-04-07T11:51:36.962232" level="INFO">Starting Browser process /home/ubuntu/dockerFX/tests/venv/lib/python3.13/site-packages/Browser/wrapper/index.js using port 54365</msg>
+<msg time="2026-04-07T11:51:36.962286" level="INFO">Node startup parameters: ['node', '/home/ubuntu/dockerFX/tests/venv/lib/python3.13/site-packages/Browser/wrapper/index.js', '54365']</msg>
+<msg time="2026-04-07T11:51:37.422887" level="INFO">Successfully created browser with options: {"browser":"chromium","headless":true,"chromiumSandbox":false,"devtools":false,"handleSIGHUP":true,"handleSIGINT":true,"handleSIGTERM":true,"slowMo":0,"timeout":30000,"tracesDir":"/home/ubuntu/dockerFX/reports/browser/traces/f7b45096-c5a7-4b47-99b1-e9fd2a6590b7"}</msg>
+<arg>browser=chromium</arg>
+<arg>headless=True</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Create a new playwright Browser with specified options.</doc>
+<status status="PASS" start="2026-04-07T11:51:36.954757" elapsed="0.468343"/>
+</kw>
+<kw name="New Context" owner="Browser">
+<msg time="2026-04-07T11:51:37.424282" level="INFO">{
+  "acceptDownloads": true,
+  "bypassCSP": false,
+  "forcedColors": "none",
+  "ignoreHTTPSErrors": false,
+  "javaScriptEnabled": true,
+  "offline": false,
+  "reducedMotion": "no-preference",
+  "serviceWorkers": "allow",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  }
+}</msg>
+<msg time="2026-04-07T11:51:37.435900" level="INFO">Successfully created context. </msg>
+<msg time="2026-04-07T11:51:37.435968" level="INFO">{'acceptDownloads': True, 'bypassCSP': False, 'forcedColors': 'none', 'ignoreHTTPSErrors': False, 'javaScriptEnabled': True, 'offline': False, 'reducedMotion': 'no-preference', 'serviceWorkers': 'allow', 'viewport': {'width': 1280, 'height': 800}}</msg>
+<arg>viewport={'width': 1280, 'height': 800}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Create a new BrowserContext with specified options.</doc>
+<status status="PASS" start="2026-04-07T11:51:37.423473" elapsed="0.012583"/>
+</kw>
+<kw name="New Page" owner="Browser">
+<msg time="2026-04-07T11:51:37.603510" level="INFO">Successfully initialized new page object and opened url: http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Open a new Page.</doc>
+<status status="PASS" start="2026-04-07T11:51:37.436271" elapsed="0.167450"/>
+</kw>
+<status status="PASS" start="2026-04-07T11:51:36.954041" elapsed="0.649807"/>
+</kw>
+<test id="s1-t1" name="TC01 - Page de login accessible" line="20">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:51:37.661740" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:51:37.627996" elapsed="0.033906"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:51:52.760412" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-1.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-1.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:51:52.760563" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:51:52.760907" level="FAIL">Error: locator.waitFor: Error: strict mode violation: locator('input') resolved to 2 elements:
+    1) &lt;input value="" required="" type="email" placeholder="votre@email.com"/&gt; aka getByPlaceholder('votre@email.com')
+    2) &lt;input value="" required="" type="password" placeholder="••••••••••••••••••"/&gt; aka getByPlaceholder('••••••••••••••••••')
+
+Call log:
+  - waiting for locator('input') to be visible
+</msg>
+<arg>css=input</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:51:37.662168" elapsed="15.101124">Error: locator.waitFor: Error: strict mode violation: locator('input') resolved to 2 elements:
+    1) &lt;input value="" required="" type="email" placeholder="votre@email.com"/&gt; aka getByPlaceholder('votre@email.com')
+    2) &lt;input value="" required="" type="password" placeholder="••••••••••••••••••"/&gt; aka getByPlaceholder('••••••••••••••••••')
+
+Call log:
+  - waiting for locator('input') to be visible
+</status>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc01_login.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:51:52.763537" elapsed="0.000037"/>
+</kw>
+<doc>La page de login charge correctement</doc>
+<tag>login</tag>
+<tag>smoke</tag>
+<status status="FAIL" start="2026-04-07T11:51:37.603950" elapsed="15.159833">Error: locator.waitFor: Error: strict mode violation: locator('input') resolved to 2 elements:
+    1) &lt;input value="" required="" type="email" placeholder="votre@email.com"/&gt; aka getByPlaceholder('votre@email.com')
+    2) &lt;input value="" required="" type="password" placeholder="••••••••••••••••••"/&gt; aka getByPlaceholder('••••••••••••••••••')
+
+Call log:
+  - waiting for locator('input') to be visible
+</status>
+</test>
+<test id="s1-t2" name="TC02 - Login avec identifiants valides" line="27">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:51:52.826736" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:51:52.770771" elapsed="0.056159"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:51:52.864394" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:51:52.827579" elapsed="0.037049"/>
+</kw>
+<msg time="2026-04-07T11:51:52.864859" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:51:52.827324" elapsed="0.037566"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:51:52.865963" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:51:52.865386" elapsed="0.016538"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:51:52.882753" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:51:52.882184" elapsed="0.010809"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:51:52.893724" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:51:52.893233" elapsed="0.056188"/>
+</kw>
+<status status="PASS" start="2026-04-07T11:51:52.865134" elapsed="0.084388"/>
+</branch>
+<status status="PASS" start="2026-04-07T11:51:52.865089" elapsed="0.084494"/>
+</if>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:52:08.043353" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-2.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-2.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:52:08.043497" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:52:08.043606" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:51:52.949807" elapsed="15.095106">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc02_dashboard.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:52:08.045141" elapsed="0.000035"/>
+</kw>
+<doc>Login correct → dashboard visible</doc>
+<tag>auth</tag>
+<tag>login</tag>
+<tag>smoke</tag>
+<status status="FAIL" start="2026-04-07T11:51:52.768459" elapsed="15.276887">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t3" name="TC03 - Login avec mauvais mot de passe" line="41">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:52:08.072914" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:52:08.051303" elapsed="0.021810"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:52:08.103423" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:52:08.073399" elapsed="0.030213"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:52:08.104292" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:08.103872" elapsed="0.010075"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:52:08.114713" level="INFO">Fills the text 'mauvais_mdp_123' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>mauvais_mdp_123</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:08.114241" elapsed="0.009554"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:52:08.124312" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:08.123996" elapsed="0.034760"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<msg time="2026-04-07T11:52:10.159609" level="INFO">Slept 2 seconds.</msg>
+<arg>2s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="PASS" start="2026-04-07T11:52:08.159090" elapsed="2.000666"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<msg time="2026-04-07T11:52:10.259399" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="../tests/reports/screenshots/tc03_login_error.png" target="_blank"&gt;&lt;img src="../tests/reports/screenshots/tc03_login_error.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc03_login_error.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="PASS" start="2026-04-07T11:52:10.160020" elapsed="0.099545"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:52:13.359915" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-3.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-3.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:52:13.360039" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:52:13.360140" level="FAIL">TimeoutError: locator.waitFor: Timeout 3000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=3s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:52:10.260014" elapsed="3.101462">TimeoutError: locator.waitFor: Timeout 3000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<msg time="2026-04-07T11:52:13.361616" level="INFO">${on_dashboard} = False</msg>
+<var>${on_dashboard}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=3s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:52:10.259843" elapsed="3.101794"/>
+</kw>
+<kw name="Should Not Be True" owner="BuiltIn">
+<arg>${on_dashboard}</arg>
+<doc>Fails if the given condition is true.</doc>
+<status status="PASS" start="2026-04-07T11:52:13.361897" elapsed="0.000159"/>
+</kw>
+<doc>Mauvais password → pas de dashboard</doc>
+<tag>login</tag>
+<tag>securite</tag>
+<status status="PASS" start="2026-04-07T11:52:08.049095" elapsed="5.313163"/>
+</test>
+<test id="s1-t4" name="TC04 - Login avec champs vides" line="55">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:52:13.389277" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:52:13.368064" elapsed="0.021295"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:52:13.412283" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:52:13.389704" elapsed="0.022660"/>
+</kw>
+<msg time="2026-04-07T11:52:13.412520" level="INFO">${login_page} = True</msg>
+<var>${login_page}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:52:13.389538" elapsed="0.023003"/>
+</kw>
+<if>
+<branch type="IF" condition="${login_page}">
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:52:13.413258" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<msg time="2026-04-07T11:52:23.507411" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-4.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-4.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:52:23.507545" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:52:23.507798" level="FAIL">TimeoutError: locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator('button[type="submit"]')
+  -   locator resolved to &lt;button disabled type="submit"&gt;Se connecter →&lt;/button&gt;
+  - attempting click action
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #1
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #2
+  -   waiting 20ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #3
+  -   waiting 100ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #4
+  -   waiting 100ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #5
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #6
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #7
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #8
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #9
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #10
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #11
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #12
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #13
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #14
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #15
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #16
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #17
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #18
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #19
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #20
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #21
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #22
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #23
+  -   waiting 500ms
+</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="FAIL" start="2026-04-07T11:52:13.412943" elapsed="10.096555">TimeoutError: locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator('button[type="submit"]')
+  -   locator resolved to &lt;button disabled type="submit"&gt;Se connecter →&lt;/button&gt;
+  - attempting click action
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #1
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #2
+  -   waiting 20ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #3
+  -   waiting 100ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #4
+    [ Message content over the limit has been removed. ]
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #19
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #20
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #21
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #22
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #23
+  -   waiting 500ms</status>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>1s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:52:23.509712" elapsed="0.000041"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc04_empty.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:52:23.509854" elapsed="0.000024"/>
+</kw>
+<status status="FAIL" start="2026-04-07T11:52:13.412770" elapsed="10.097183">TimeoutError: locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator('button[type="submit"]')
+  -   locator resolved to &lt;button disabled type="submit"&gt;Se connecter →&lt;/button&gt;
+  - attempting click action
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #1
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #2
+  -   waiting 20ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #3
+  -   waiting 100ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #4
+    [ Message content over the limit has been removed. ]
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #19
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #20
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #21
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #22
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #23
+  -   waiting 500ms</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:52:13.412747" elapsed="10.097312">TimeoutError: locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator('button[type="submit"]')
+  -   locator resolved to &lt;button disabled type="submit"&gt;Se connecter →&lt;/button&gt;
+  - attempting click action
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #1
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #2
+  -   waiting 20ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #3
+  -   waiting 100ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #4
+    [ Message content over the limit has been removed. ]
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #19
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #20
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #21
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #22
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #23
+  -   waiting 500ms</status>
+</if>
+<doc>Soumission sans credentials</doc>
+<tag>login</tag>
+<tag>validation</tag>
+<status status="FAIL" start="2026-04-07T11:52:13.365990" elapsed="10.144549">TimeoutError: locator.click: Timeout 10000ms exceeded.
+Call log:
+  - waiting for locator('button[type="submit"]')
+  -   locator resolved to &lt;button disabled type="submit"&gt;Se connecter →&lt;/button&gt;
+  - attempting click action
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #1
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #2
+  -   waiting 20ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #3
+  -   waiting 100ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #4
+    [ Message content over the limit has been removed. ]
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #19
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #20
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #21
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #22
+  -   waiting 500ms
+  -   waiting for element to be visible, enabled and stable
+  -   element is not enabled
+  - retrying click action, attempt #23
+  -   waiting 500ms</status>
+</test>
+<test id="s1-t5" name="TC05 - Dashboard affiche les paires Forex" line="67">
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:52:23.539040" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:52:23.517442" elapsed="0.021787"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:52:23.539448" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:52:23.540292" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:52:24.039442" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:52:23.539406" elapsed="0.500211"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:52:24.055052" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:52:24.039999" elapsed="0.015230"/>
+</kw>
+<msg time="2026-04-07T11:52:24.055363" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:52:24.039831" elapsed="0.015555"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:52:24.056065" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:24.055636" elapsed="0.010344"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:52:24.066603" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:24.066188" elapsed="0.009387"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:52:24.076212" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:24.075835" elapsed="0.048207"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:52:39.223261" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-5.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-5.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:52:39.223397" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:52:39.223504" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:52:24.124251" elapsed="15.100619">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:52:24.055479" elapsed="15.169505">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:52:24.055458" elapsed="15.169629">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:52:23.517222" elapsed="15.707977">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<arg>css=.grid</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="NOT RUN" start="2026-04-07T11:52:39.225419" elapsed="0.000036"/>
+</kw>
+<kw name="Get Elements" owner="Browser">
+<var>${tiles}</var>
+<arg>css=.grid &gt; *</arg>
+<tag>Getter</tag>
+<tag>PageContent</tag>
+<doc>Returns a reference to Playwright [https://playwright.dev/docs/api/class-locator|Locator]
+for all matched elements by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:52:39.225593" elapsed="0.000025"/>
+</kw>
+<kw name="Get Length" owner="BuiltIn">
+<var>${count}</var>
+<arg>${tiles}</arg>
+<doc>Returns and logs the length of the given item as an integer.</doc>
+<status status="NOT RUN" start="2026-04-07T11:52:39.225764" elapsed="0.000026"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${count} &gt;= 20</arg>
+<arg>msg=Attendu ≥20 paires, trouvé: ${count}</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="NOT RUN" start="2026-04-07T11:52:39.225903" elapsed="0.000023"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc05_grid.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:52:39.226052" elapsed="0.000024"/>
+</kw>
+<doc>Au moins 20 paires sont présentes</doc>
+<tag>dashboard</tag>
+<tag>smoke</tag>
+<status status="FAIL" start="2026-04-07T11:52:23.514898" elapsed="15.711327">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t6" name="TC06 - Bouton AutoBot présent dans le header" line="77">
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:52:39.252050" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:52:39.232381" elapsed="0.019763"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:52:39.252297" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:52:39.252803" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:52:39.751699" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:52:39.252264" elapsed="0.499614"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:52:39.766382" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:52:39.752251" elapsed="0.014256"/>
+</kw>
+<msg time="2026-04-07T11:52:39.766643" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:52:39.752070" elapsed="0.014621"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:52:39.767299" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:39.766941" elapsed="0.007453"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:52:39.774925" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:39.774539" elapsed="0.008631"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:52:39.783619" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:39.783306" elapsed="0.041637"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:52:54.932099" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-6.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-6.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:52:54.932303" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:52:54.932432" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:52:39.825070" elapsed="15.108656">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:52:39.766795" elapsed="15.167045">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:52:39.766771" elapsed="15.167121">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:52:39.232186" elapsed="15.701789">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<arg>xpath=//button[contains(.,'AutoBot')]</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="NOT RUN" start="2026-04-07T11:52:54.934179" elapsed="0.000035"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc06_autobot.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:52:54.934354" elapsed="0.000024"/>
+</kw>
+<doc>Le bouton AutoBot est visible</doc>
+<tag>autobot</tag>
+<tag>smoke</tag>
+<status status="FAIL" start="2026-04-07T11:52:39.229937" elapsed="15.704590">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t7" name="TC07 - Toggle AutoMode change l'état" line="84">
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:52:54.969604" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:52:54.942490" elapsed="0.027341"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:52:54.970061" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:52:54.970721" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:52:55.470423" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:52:54.970020" elapsed="0.500664"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:52:55.487902" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:52:55.471194" elapsed="0.016897"/>
+</kw>
+<msg time="2026-04-07T11:52:55.488242" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:52:55.470931" elapsed="0.017333"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:52:55.489031" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:55.488559" elapsed="0.011910"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:52:55.501001" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:55.500623" elapsed="0.008818"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:52:55.510002" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:52:55.509616" elapsed="0.047092"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:53:10.658705" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-7.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-7.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:53:10.658847" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:53:10.658954" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:52:55.556992" elapsed="15.103265">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:52:55.488384" elapsed="15.171982">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:52:55.488360" elapsed="15.172057">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:52:54.942248" elapsed="15.718251">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Get Text" owner="Browser">
+<var>${texte_avant}</var>
+<arg>xpath=//button[contains(.,'AutoBot')]</arg>
+<tag>Assertion</tag>
+<tag>Getter</tag>
+<tag>PageContent</tag>
+<doc>Returns text attribute of the element found by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:10.660726" elapsed="0.000035"/>
+</kw>
+<kw name="Click" owner="Browser">
+<arg>xpath=//button[contains(.,'AutoBot')]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:10.660895" elapsed="0.000024"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>1s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:10.661039" elapsed="0.000023"/>
+</kw>
+<kw name="Get Text" owner="Browser">
+<var>${texte_apres}</var>
+<arg>xpath=//button[contains(.,'AutoBot')]</arg>
+<tag>Assertion</tag>
+<tag>Getter</tag>
+<tag>PageContent</tag>
+<doc>Returns text attribute of the element found by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:10.661172" elapsed="0.000022"/>
+</kw>
+<kw name="Should Not Be Equal" owner="BuiltIn">
+<arg>${texte_avant}</arg>
+<arg>${texte_apres}</arg>
+<doc>Fails if the given objects are equal.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:10.661366" elapsed="0.000024"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc07_toggle.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:10.661507" elapsed="0.000021"/>
+</kw>
+<kw name="Click" owner="Browser">
+<arg>xpath=//button[contains(.,'AutoBot')]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:10.661633" elapsed="0.000037"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>0.5s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:10.661786" elapsed="0.000022"/>
+</kw>
+<doc>Cliquer AutoBot change ON ↔ OFF</doc>
+<tag>autobot</tag>
+<tag>interaction</tag>
+<status status="FAIL" start="2026-04-07T11:52:54.939551" elapsed="15.722440">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t8" name="TC08 - Navigation entre les onglets" line="97">
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:53:10.695094" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:53:10.669339" elapsed="0.025868"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:53:10.695424" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:53:10.696073" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:53:11.194796" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:53:10.695392" elapsed="0.499571"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:53:11.211441" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:53:11.195346" elapsed="0.016344"/>
+</kw>
+<msg time="2026-04-07T11:53:11.211835" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:53:11.195153" elapsed="0.016707"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:53:11.212487" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:11.212149" elapsed="0.011417"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:53:11.224016" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:11.223709" elapsed="0.009335"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:53:11.233437" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:11.233166" elapsed="0.040717"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:53:26.372494" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-8.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-8.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:53:26.372633" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:53:26.372922" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:53:11.274066" elapsed="15.100081">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:53:11.212002" elapsed="15.162249">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:53:11.211981" elapsed="15.162319">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:53:10.669149" elapsed="15.705227">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Create List" owner="BuiltIn">
+<var>@{tabs}</var>
+<arg>Analytics</arg>
+<arg>Backtest</arg>
+<arg>Journal</arg>
+<arg>Comptes</arg>
+<doc>Returns a list containing given items.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:26.374549" elapsed="0.000033"/>
+</kw>
+<for flavor="IN">
+<iter>
+<kw name="Click" owner="Browser">
+<arg>xpath=//button[contains(.,'${tab}')]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:26.374921" elapsed="0.000024"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>1s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:26.375025" elapsed="0.000022"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc08_${tab}.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:26.375120" elapsed="0.000020"/>
+</kw>
+<var name="${tab}"/>
+<status status="NOT RUN" start="2026-04-07T11:53:26.374829" elapsed="0.000343"/>
+</iter>
+<var>${tab}</var>
+<value>@{tabs}</value>
+<status status="NOT RUN" start="2026-04-07T11:53:26.374709" elapsed="0.000518"/>
+</for>
+<doc>Chaque onglet s'ouvre sans erreur</doc>
+<tag>navigation</tag>
+<tag>smoke</tag>
+<status status="FAIL" start="2026-04-07T11:53:10.666796" elapsed="15.708595">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t9" name="TC09 - Analytics contient des graphiques" line="108">
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:53:26.409400" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:53:26.382616" elapsed="0.026923"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:53:26.409755" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:53:26.410933" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:53:26.910082" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:53:26.409718" elapsed="0.500550"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:53:26.926686" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:53:26.910625" elapsed="0.016173"/>
+</kw>
+<msg time="2026-04-07T11:53:26.926981" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:53:26.910454" elapsed="0.016548"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:53:26.927616" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:26.927252" elapsed="0.009868"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:53:26.937685" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:26.937286" elapsed="0.008545"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:53:26.946341" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:26.945995" elapsed="0.042235"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:53:42.092935" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-9.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-9.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:53:42.093064" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:53:42.093220" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:53:26.988492" elapsed="15.106244">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:53:26.927092" elapsed="15.167758">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:53:26.927073" elapsed="15.167839">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:53:26.382425" elapsed="15.712574">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Click" owner="Browser">
+<arg>xpath=//button[contains(.,'Analytics')]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:42.095206" elapsed="0.000049"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>2s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:42.095374" elapsed="0.000024"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<var>${has_chart}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=svg</arg>
+<arg>visible</arg>
+<arg>timeout=10s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:42.095512" elapsed="0.000030"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc09_analytics.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:42.095696" elapsed="0.000027"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${has_chart}</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:42.095849" elapsed="0.000026"/>
+</kw>
+<doc>La page Analytics contient des éléments SVG</doc>
+<tag>analytics</tag>
+<tag>smoke</tag>
+<status status="FAIL" start="2026-04-07T11:53:26.379599" elapsed="15.716489">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t10" name="TC10 - Journal accessible" line="119">
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:53:42.126938" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:53:42.103093" elapsed="0.023945"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:53:42.127193" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:53:42.128066" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:53:42.627470" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:53:42.127162" elapsed="0.500519"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:53:42.643670" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:53:42.628061" elapsed="0.015714"/>
+</kw>
+<msg time="2026-04-07T11:53:42.643892" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:53:42.627887" elapsed="0.016024"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:53:42.644494" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:42.644134" elapsed="0.009660"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:53:42.654257" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:42.653933" elapsed="0.009941"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:53:42.664389" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:42.664095" elapsed="0.040856"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:53:57.803921" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-10.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-10.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:53:57.804075" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:53:57.804180" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:53:42.705147" elapsed="15.100348">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:53:42.643996" elapsed="15.161608">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:53:42.643978" elapsed="15.161698">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:53:42.102846" elapsed="15.702913">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Click" owner="Browser">
+<arg>xpath=//button[contains(.,'Journal')]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:57.805950" elapsed="0.000034"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>1s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:57.806097" elapsed="0.000023"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc10_journal.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:53:57.806214" elapsed="0.000022"/>
+</kw>
+<doc>La page Journal s'ouvre</doc>
+<tag>journal</tag>
+<tag>smoke</tag>
+<status status="FAIL" start="2026-04-07T11:53:42.100370" elapsed="15.705989">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t11" name="TC11 - Badge WebSocket connected" line="127">
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:53:57.838364" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:53:57.813066" elapsed="0.025472"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:53:57.838783" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:53:57.839388" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:53:58.339141" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:53:57.838739" elapsed="0.500604"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:53:58.355589" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:53:58.339765" elapsed="0.015955"/>
+</kw>
+<msg time="2026-04-07T11:53:58.355845" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:53:58.339564" elapsed="0.016302"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:53:58.356490" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:58.356139" elapsed="0.008930"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:53:58.365509" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:58.365197" elapsed="0.008974"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:53:58.374549" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:53:58.374289" elapsed="0.046551"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:54:13.520420" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-11.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-11.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:54:13.520549" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:54:13.520675" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:53:58.421038" elapsed="15.100881">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:53:58.355995" elapsed="15.166030">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:53:58.355969" elapsed="15.166157">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:53:57.812873" elapsed="15.709341">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>3s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:13.522392" elapsed="0.000032"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<var>${connected}</var>
+<arg>Wait For Elements State</arg>
+<arg>xpath=//*[contains(.,'connected')]</arg>
+<arg>visible</arg>
+<arg>timeout=20s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:13.522533" elapsed="0.000024"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc11_ws.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:13.522704" elapsed="0.000026"/>
+</kw>
+<kw name="Should Be True" owner="BuiltIn">
+<arg>${connected}</arg>
+<doc>Fails if the given condition is not true.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:13.522841" elapsed="0.000023"/>
+</kw>
+<doc>La connexion WebSocket est active</doc>
+<tag>smoke</tag>
+<tag>websocket</tag>
+<status status="FAIL" start="2026-04-07T11:53:57.810433" elapsed="15.712572">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t12" name="TC12 - Filtre BUY fonctionne" line="137">
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:54:13.556883" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:54:13.531139" elapsed="0.025836"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:54:13.557139" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:54:13.558162" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:54:14.056990" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:54:13.557107" elapsed="0.500049"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:54:14.072762" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:54:14.057520" elapsed="0.015342"/>
+</kw>
+<msg time="2026-04-07T11:54:14.072981" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:54:14.057347" elapsed="0.015655"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:54:14.073546" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:54:14.073226" elapsed="0.008774"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:54:14.082408" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:54:14.082117" elapsed="0.008960"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:54:14.091869" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:54:14.091462" elapsed="0.044067"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:54:29.237169" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-12.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-12.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:54:29.237366" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:54:29.237495" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:54:14.135691" elapsed="15.103604">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:54:14.073090" elapsed="15.166371">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:54:14.073072" elapsed="15.166459">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:54:13.530872" elapsed="15.708760">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="GET" owner="RequestsLibrary">
+<arg>${API_URL}/api/test</arg>
+<arg>expected_status=200</arg>
+<doc>Sends a GET request.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:29.239902" elapsed="0.000040"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>1s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:29.240098" elapsed="0.000034"/>
+</kw>
+<kw name="Click" owner="Browser">
+<arg>xpath=//button[contains(.,'BUY')]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:29.240299" elapsed="0.000035"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>1s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:29.240496" elapsed="0.000032"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc12_buy.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:29.240745" elapsed="0.000034"/>
+</kw>
+<doc>Cliquer BUY filtre les paires</doc>
+<tag>dashboard</tag>
+<tag>filtres</tag>
+<status status="FAIL" start="2026-04-07T11:54:13.528267" elapsed="15.712782">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t13" name="TC13 - Page Backtest affiche les instructions" line="147">
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:54:29.273512" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:54:29.248433" elapsed="0.025178"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:54:29.273797" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:54:29.274459" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:54:29.773940" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:54:29.273764" elapsed="0.500351"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:54:29.789244" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:54:29.774489" elapsed="0.014872"/>
+</kw>
+<msg time="2026-04-07T11:54:29.789516" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:54:29.774311" elapsed="0.015227"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:54:29.790272" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:54:29.789931" elapsed="0.008546"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:54:29.798971" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:54:29.798609" elapsed="0.007863"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:54:29.806884" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:54:29.806603" elapsed="0.044130"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:54:44.954708" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-13.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-13.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:54:44.954838" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:54:44.954947" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:54:29.850924" elapsed="15.105692">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:54:29.789721" elapsed="15.167031">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:54:29.789628" elapsed="15.167178">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:54:29.248210" elapsed="15.708675">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Click" owner="Browser">
+<arg>xpath=//button[contains(.,'Backtest')]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:44.957108" elapsed="0.000038"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>1s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:44.957273" elapsed="0.000026"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<arg>xpath=//*[contains(.,'Importer')]</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:44.957398" elapsed="0.000025"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc13_backtest.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:54:44.957526" elapsed="0.000021"/>
+</kw>
+<doc>Guide d'import CSV visible</doc>
+<tag>backtest</tag>
+<tag>smoke</tag>
+<status status="FAIL" start="2026-04-07T11:54:29.245763" elapsed="15.711934">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t14" name="TC14 - Page Comptes liste les comptes" line="156">
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:54:44.992870" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:54:44.964913" elapsed="0.028144"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:54:44.993287" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:54:44.993893" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:54:45.493619" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:54:44.993242" elapsed="0.500580"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:54:45.509291" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:54:45.494238" elapsed="0.015170"/>
+</kw>
+<msg time="2026-04-07T11:54:45.509535" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:54:45.494068" elapsed="0.015488"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:54:45.510189" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:54:45.509841" elapsed="0.008468"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:54:45.518779" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:54:45.518439" elapsed="0.009566"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:54:45.528531" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:54:45.528179" elapsed="0.040290"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:55:00.674768" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-14.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-14.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:55:00.674911" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:55:00.675012" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:54:45.568758" elapsed="15.107541">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:54:45.509686" elapsed="15.166727">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:54:45.509627" elapsed="15.166838">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:54:44.964698" elapsed="15.711845">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Click" owner="Browser">
+<arg>xpath=//button[contains(.,'Comptes')]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="NOT RUN" start="2026-04-07T11:55:00.676759" elapsed="0.000033"/>
+</kw>
+<kw name="Sleep" owner="BuiltIn">
+<arg>1s</arg>
+<doc>Pauses the test executed for the given time.</doc>
+<status status="NOT RUN" start="2026-04-07T11:55:00.676921" elapsed="0.000024"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<arg>xpath=//*[contains(.,'FTMO')]</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="NOT RUN" start="2026-04-07T11:55:00.677057" elapsed="0.000023"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc14_accounts.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:55:00.677236" elapsed="0.000026"/>
+</kw>
+<doc>Au moins un compte FTMO affiché</doc>
+<tag>comptes</tag>
+<tag>smoke</tag>
+<status status="FAIL" start="2026-04-07T11:54:44.962299" elapsed="15.715112">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t15" name="TC15 - Affichage mobile 375px" line="165">
+<kw name="Set Viewport Size" owner="Browser">
+<msg time="2026-04-07T11:55:00.686939" level="INFO">Set viewport size to: [object Object]</msg>
+<arg>375</arg>
+<arg>812</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Sets current Pages viewport size to specified dimensions.</doc>
+<status status="PASS" start="2026-04-07T11:55:00.683473" elapsed="0.003550"/>
+</kw>
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:55:00.713001" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:55:00.687461" elapsed="0.025810"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:55:00.713578" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:55:00.714414" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:55:01.213849" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:55:00.713518" elapsed="0.500509"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:55:01.229064" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:55:01.214404" elapsed="0.014765"/>
+</kw>
+<msg time="2026-04-07T11:55:01.229292" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:55:01.214223" elapsed="0.015090"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:55:01.229901" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:55:01.229556" elapsed="0.008765"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:55:01.238822" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:55:01.238493" elapsed="0.009755"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:55:01.248688" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:55:01.248380" elapsed="0.035782"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:55:16.353272" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-15.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-15.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:55:16.353395" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:55:16.353499" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:55:01.284350" elapsed="15.070967">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:55:01.229400" elapsed="15.126040">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:55:01.229381" elapsed="15.126151">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:55:00.687257" elapsed="15.668362">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="NOT RUN" start="2026-04-07T11:55:16.355844" elapsed="0.000038"/>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc15_mobile.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:55:16.355998" elapsed="0.000024"/>
+</kw>
+<kw name="Set Viewport Size" owner="Browser">
+<arg>1280</arg>
+<arg>800</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Sets current Pages viewport size to specified dimensions.</doc>
+<status status="NOT RUN" start="2026-04-07T11:55:16.356114" elapsed="0.000022"/>
+</kw>
+<doc>Interface lisible sur iPhone SE</doc>
+<tag>mobile</tag>
+<tag>responsive</tag>
+<status status="FAIL" start="2026-04-07T11:55:00.681157" elapsed="15.675111">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<test id="s1-t16" name="TC16 - Affichage tablette 768px" line="174">
+<kw name="Set Viewport Size" owner="Browser">
+<msg time="2026-04-07T11:55:16.365737" level="INFO">Set viewport size to: [object Object]</msg>
+<arg>768</arg>
+<arg>1024</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Sets current Pages viewport size to specified dimensions.</doc>
+<status status="PASS" start="2026-04-07T11:55:16.362374" elapsed="0.003469"/>
+</kw>
+<kw name="Se Connecter">
+<kw name="Go To" owner="Browser">
+<msg time="2026-04-07T11:55:16.392790" level="INFO">Successfully opened URL http://localhost</msg>
+<arg>${BASE_URL}</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Navigates to the given ``url``.</doc>
+<status status="PASS" start="2026-04-07T11:55:16.366267" elapsed="0.026768"/>
+</kw>
+<kw name="Wait Until Network Is Idle" owner="Browser">
+<msg time="2026-04-07T11:55:16.393392" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:55:16.394276" level="INFO">Waiting page load to state to receive networkidle in 15000.0</msg>
+<msg time="2026-04-07T11:55:16.892313" level="INFO">Load state networkidle got in 15000</msg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>HTTP</tag>
+<tag>Wait</tag>
+<doc>*DEPRECATED!!* Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</doc>
+<status status="PASS" start="2026-04-07T11:55:16.393309" elapsed="0.499160"/>
+</kw>
+<kw name="Run Keyword And Return Status" owner="BuiltIn">
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:55:16.908456" level="INFO">Waited for Element with selector css=input[type="password"] at state visible</msg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="PASS" start="2026-04-07T11:55:16.892873" elapsed="0.015695"/>
+</kw>
+<msg time="2026-04-07T11:55:16.908705" level="INFO">${need_login} = True</msg>
+<var>${need_login}</var>
+<arg>Wait For Elements State</arg>
+<arg>css=input[type="password"]</arg>
+<arg>visible</arg>
+<arg>timeout=5s</arg>
+<doc>Runs the given keyword with given arguments and returns the status as a Boolean value.</doc>
+<status status="PASS" start="2026-04-07T11:55:16.892691" elapsed="0.016045"/>
+</kw>
+<if>
+<branch type="IF" condition="${need_login}">
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:55:16.909285" level="INFO">Fills the text 'hadavidh@gmail.com' in the given field.</msg>
+<arg>css=input[type="email"], input[type="text"]</arg>
+<arg>${LOGIN}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:55:16.908957" elapsed="0.008001"/>
+</kw>
+<kw name="Fill Text" owner="Browser">
+<msg time="2026-04-07T11:55:16.917520" level="INFO">Fills the text 'motdepasse' in the given field.</msg>
+<arg>css=input[type="password"]</arg>
+<arg>${PASSWORD}</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Clears and fills the given ``txt`` into the text field found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:55:16.917072" elapsed="0.009086"/>
+</kw>
+<kw name="Click" owner="Browser">
+<msg time="2026-04-07T11:55:16.926888" level="INFO">Clicks the element 'css=button[type="submit"]'.</msg>
+<arg>css=button[type="submit"]</arg>
+<tag>PageContent</tag>
+<tag>Setter</tag>
+<doc>Simulates mouse click on the element found by ``selector``.</doc>
+<status status="PASS" start="2026-04-07T11:55:16.926372" elapsed="0.041845"/>
+</kw>
+<kw name="Wait For Elements State" owner="Browser">
+<msg time="2026-04-07T11:55:32.060852" level="INFO" html="true">&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td colspan="3"&gt;&lt;a href="browser/screenshot/fail-screenshot-16.png" target="_blank"&gt;&lt;img src="browser/screenshot/fail-screenshot-16.png" width="800px"/&gt;&lt;/a&gt;</msg>
+<msg time="2026-04-07T11:55:32.060994" level="INFO">See also file:///home/ubuntu/dockerFX/reports/playwright-log.txt for additional details.</msg>
+<msg time="2026-04-07T11:55:32.061158" level="FAIL">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</msg>
+<arg>css=.hdr-title</arg>
+<arg>visible</arg>
+<arg>timeout=${TIMEOUT}</arg>
+<tag>PageContent</tag>
+<tag>Wait</tag>
+<doc>Waits for the element found by ``selector`` to satisfy state option.</doc>
+<status status="FAIL" start="2026-04-07T11:55:16.968432" elapsed="15.093993">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<status status="FAIL" start="2026-04-07T11:55:16.908824" elapsed="15.153704">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</branch>
+<status status="FAIL" start="2026-04-07T11:55:16.908805" elapsed="15.153772">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</if>
+<status status="FAIL" start="2026-04-07T11:55:16.366083" elapsed="15.696596">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</kw>
+<kw name="Take Screenshot" owner="Browser">
+<arg>filename=/home/ubuntu/dockerFX/tests/robot/suites/../../reports/screenshots/tc16_tablet.png</arg>
+<tag>PageContent</tag>
+<doc>Takes a screenshot of the current window or element and saves it to disk.</doc>
+<status status="NOT RUN" start="2026-04-07T11:55:32.062870" elapsed="0.000033"/>
+</kw>
+<kw name="Set Viewport Size" owner="Browser">
+<arg>1280</arg>
+<arg>800</arg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Sets current Pages viewport size to specified dimensions.</doc>
+<status status="NOT RUN" start="2026-04-07T11:55:32.063007" elapsed="0.000022"/>
+</kw>
+<doc>Interface lisible sur iPad</doc>
+<tag>responsive</tag>
+<tag>tablet</tag>
+<status status="FAIL" start="2026-04-07T11:55:16.360249" elapsed="15.702908">TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+Call log:
+  - waiting for locator('.hdr-title') to be visible
+</status>
+</test>
+<kw name="Fermer Navigateur" type="TEARDOWN">
+<kw name="Close Browser" owner="Browser">
+<msg time="2026-04-07T11:55:32.099701" level="INFO">Closed browser</msg>
+<tag>BrowserControl</tag>
+<tag>Setter</tag>
+<doc>Closes the current browser.</doc>
+<status status="PASS" start="2026-04-07T11:55:32.067545" elapsed="0.032335"/>
+</kw>
+<status status="PASS" start="2026-04-07T11:55:32.067391" elapsed="0.032653"/>
+</kw>
+<doc>ICT Trading Dashboard — Tests End-to-End</doc>
+<status status="FAIL" start="2026-04-07T11:51:36.773874" elapsed="235.326211"/>
+</suite>
+<statistics>
+<total>
+<stat pass="1" fail="15" skip="0">All Tests</stat>
+</total>
+<tag>
+<stat pass="0" fail="1" skip="0">analytics</stat>
+<stat pass="0" fail="1" skip="0">auth</stat>
+<stat pass="0" fail="2" skip="0">autobot</stat>
+<stat pass="0" fail="1" skip="0">backtest</stat>
+<stat pass="0" fail="1" skip="0">comptes</stat>
+<stat pass="0" fail="2" skip="0">dashboard</stat>
+<stat pass="0" fail="1" skip="0">filtres</stat>
+<stat pass="0" fail="1" skip="0">interaction</stat>
+<stat pass="0" fail="1" skip="0">journal</stat>
+<stat pass="1" fail="3" skip="0">login</stat>
+<stat pass="0" fail="1" skip="0">mobile</stat>
+<stat pass="0" fail="1" skip="0">navigation</stat>
+<stat pass="0" fail="2" skip="0">responsive</stat>
+<stat pass="1" fail="0" skip="0">securite</stat>
+<stat pass="0" fail="10" skip="0">smoke</stat>
+<stat pass="0" fail="1" skip="0">tablet</stat>
+<stat pass="0" fail="1" skip="0">validation</stat>
+<stat pass="0" fail="1" skip="0">websocket</stat>
+</tag>
+<suite>
+<stat pass="1" fail="15" skip="0" id="s1" name="Dashboard Tests">Dashboard Tests</stat>
+</suite>
+</statistics>
+<errors>
+<msg time="2026-04-07T11:52:23.539448" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:52:39.252297" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:52:54.970061" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:53:10.695424" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:53:26.409755" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:53:42.127193" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:53:57.838783" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:54:13.557139" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:54:29.273797" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:54:44.993287" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:55:00.713578" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+<msg time="2026-04-07T11:55:16.393392" level="WARN">Keyword 'Browser.Wait Until Network Is Idle' is deprecated. Use `Wait For Load State` instead. rfbrowser transform --wait-until-network-is-idle path/to/test command automatically transforms keyword to new format.</msg>
+</errors>
+</robot>

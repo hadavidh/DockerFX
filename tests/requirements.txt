@@ -1,0 +1,21 @@
+# tests/requirements.txt
+# Dépendances Python pour les tests Robot Framework
+# Installation : pip install -r tests/requirements.txt
+
+# ── Robot Framework core ────────────────────────────────────
+robotframework==7.0.1
+robotframework-browser==18.9.0
+robotframework-seleniumlibrary==6.3.0
+robotframework-requests==0.9.7
+robotframework-jsonlibrary==0.5.0
+
+# ── Parallel execution ──────────────────────────────────────
+robotframework-pabot==2.18.0
+
+# ── Reporting ───────────────────────────────────────────────
+# ── Debug ───────────────────────────────────────────────────
+robotframework-debuglibrary==2.5.0
+
+# ── Utils ───────────────────────────────────────────────────
+requests>=2.31.0
+Pillow>=10.4.0

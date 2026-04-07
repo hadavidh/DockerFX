@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="Dashboard Tests" tests="16" errors="0" failures="15" skipped="0" time="235.326" timestamp="2026-04-07T11:51:36.773874">
+<testcase classname="Dashboard Tests" name="TC01 - Page de login accessible" time="15.160">
+<failure message="Error: locator.waitFor: Error: strict mode violation: locator('input') resolved to 2 elements:&#10;    1) &lt;input value=&quot;&quot; required=&quot;&quot; type=&quot;email&quot; placeholder=&quot;votre@email.com&quot;/&gt; aka getByPlaceholder('votre@email.com')&#10;    2) &lt;input value=&quot;&quot; required=&quot;&quot; type=&quot;password&quot; placeholder=&quot;••••••••••••••••••&quot;/&gt; aka getByPlaceholder('••••••••••••••••••')&#10;&#10;Call log:&#10;  - waiting for locator('input') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC02 - Login avec identifiants valides" time="15.277">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC03 - Login avec mauvais mot de passe" time="5.313">
+</testcase>
+<testcase classname="Dashboard Tests" name="TC04 - Login avec champs vides" time="10.145">
+<failure message="TimeoutError: locator.click: Timeout 10000ms exceeded.&#10;Call log:&#10;  - waiting for locator('button[type=&quot;submit&quot;]')&#10;  -   locator resolved to &lt;button disabled type=&quot;submit&quot;&gt;Se connecter →&lt;/button&gt;&#10;  - attempting click action&#10;  -   waiting for element to be visible, enabled and stable&#10;  -   element is not enabled&#10;  - retrying click action, attempt #1&#10;  -   waiting for element to be visible, enabled and stable&#10;  -   element is not enabled&#10;  - retrying click action, attempt #2&#10;  -   waiting 20ms&#10;  -   waiting for element to be visible, enabled and stable&#10;  -   element is not enabled&#10;  - retrying click action, attempt #3&#10;  -   waiting 100ms&#10;  -   waiting for element to be visible, enabled and stable&#10;  -   element is not enabled&#10;  - retrying click action, attempt #4&#10;    [ Message content over the limit has been removed. ]&#10;  -   waiting for element to be visible, enabled and stable&#10;  -   element is not enabled&#10;  - retrying click action, attempt #19&#10;  -   waiting 500ms&#10;  -   waiting for element to be visible, enabled and stable&#10;  -   element is not enabled&#10;  - retrying click action, attempt #20&#10;  -   waiting 500ms&#10;  -   waiting for element to be visible, enabled and stable&#10;  -   element is not enabled&#10;  - retrying click action, attempt #21&#10;  -   waiting 500ms&#10;  -   waiting for element to be visible, enabled and stable&#10;  -   element is not enabled&#10;  - retrying click action, attempt #22&#10;  -   waiting 500ms&#10;  -   waiting for element to be visible, enabled and stable&#10;  -   element is not enabled&#10;  - retrying click action, attempt #23&#10;  -   waiting 500ms" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC05 - Dashboard affiche les paires Forex" time="15.711">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC06 - Bouton AutoBot présent dans le header" time="15.705">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC07 - Toggle AutoMode change l'état" time="15.722">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC08 - Navigation entre les onglets" time="15.709">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC09 - Analytics contient des graphiques" time="15.716">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC10 - Journal accessible" time="15.706">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC11 - Badge WebSocket connected" time="15.713">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC12 - Filtre BUY fonctionne" time="15.713">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC13 - Page Backtest affiche les instructions" time="15.712">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC14 - Page Comptes liste les comptes" time="15.715">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC15 - Affichage mobile 375px" time="15.675">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<testcase classname="Dashboard Tests" name="TC16 - Affichage tablette 768px" time="15.703">
+<failure message="TimeoutError: locator.waitFor: Timeout 15000ms exceeded.&#10;Call log:&#10;  - waiting for locator('.hdr-title') to be visible&#10;" type="AssertionError"/>
+</testcase>
+<properties>
+<property name="Documentation" value="ICT Trading Dashboard — Tests End-to-End"/>
+</properties>
+</testsuite>

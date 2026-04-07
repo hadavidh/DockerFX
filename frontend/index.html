@@ -1,15 +1,160 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Forex Signal Dashboard</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>" />
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+
+  <!-- ══ PWA & Mobile Meta ════════════════════════════════════ -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ICT Forex" />
+  <meta name="application-name" content="ICT Trading Dashboard" />
+  <meta name="theme-color" content="#0F172A" />
+  <meta name="msapplication-TileColor" content="#1E40AF" />
+  <meta name="msapplication-tap-highlight" content="no" />
+
+  <!-- ══ SEO / Description ════════════════════════════════════ -->
+  <meta name="description" content="Forex AutoBot — FTMO · cTrader Open API · ICT AutoBot + NEXUS Pro" />
+
+  <!-- ══ Manifest PWA ════════════════════════════════════════ -->
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- ══ Icônes Apple (iOS) ══════════════════════════════════ -->
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="167x167" href="/icons/icon-192.png" />
+
+  <!-- ══ Splash screens iOS ══════════════════════════════════ -->
+  <!-- iPhone 14 Pro Max -->
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)"
+    href="/icons/icon-512.png" />
+  <!-- iPhone 14 -->
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)"
+    href="/icons/icon-512.png" />
+  <!-- iPhone SE -->
+  <link rel="apple-touch-startup-image"
+    media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)"
+    href="/icons/icon-512.png" />
+
+  <!-- ══ Favicon ════════════════════════════════════════════ -->
+  <link rel="icon" type="image/png" sizes="32x32" href="/icons/icon-96.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/icons/icon-72.png" />
+
+  <!-- ══ Prevent zoom on input focus (iOS) ══════════════════ -->
+  <style>
+    /* Prevent iOS rubber band scroll on body */
+    html, body {
+      overscroll-behavior: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    /* Safe area insets for notch/home bar */
+    #root {
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+    /* Prevent text selection on long press */
+    body {
+      -webkit-user-select: none;
+      user-select: text; /* override for inputs */
+      -webkit-tap-highlight-color: transparent;
+    }
+    input, textarea {
+      user-select: text;
+      -webkit-user-select: text;
+    }
+    /* Loader initial */
+    #initial-loader {
+      position: fixed; inset: 0;
+      background: #0F172A;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+      z-index: 9999;
+      transition: opacity .3s;
+    }
+    #initial-loader.hidden { opacity: 0; pointer-events: none; }
+    .loader-logo {
+      width: 72px; height: 72px; border-radius: 16px;
+      background: linear-gradient(135deg, #1E3A5F, #1E40AF);
+      display: flex; align-items: center; justify-content: center;
+      font-family: Arial, sans-serif; font-weight: 900;
+      font-size: 28px; color: white; letter-spacing: -1px;
+    }
+    .loader-text { color: #64748b; font-family: Arial, sans-serif; font-size: 13px; }
+    .loader-dot {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      background: #1E40AF; margin: 0 3px;
+      animation: bounce 1.2s infinite ease-in-out;
+    }
+    .loader-dot:nth-child(2) { animation-delay: .2s; }
+    .loader-dot:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,80%,100%{transform:scale(0)} 40%{transform:scale(1)} }
+  </style>
+
+  <title>ICT Trading Dashboard</title>
+</head>
+<body>
+
+  <!-- Initial loader — masqué dès que React monte -->
+  <div id="initial-loader">
+    <div class="loader-logo">FX</div>
+    <div class="loader-text">Chargement...</div>
+    <div>
+      <span class="loader-dot"></span>
+      <span class="loader-dot"></span>
+      <span class="loader-dot"></span>
+    </div>
+  </div>
+
+  <div id="root"></div>
+
+  <!-- ══ Register Service Worker ═══════════════════════════════ -->
+  <script>
+    // Masquer le loader — appelé par React OU automatiquement après 2s
+    window.__hideLoader = () => {
+      const el = document.getElementById('initial-loader')
+      if (el) { el.classList.add('hidden'); setTimeout(() => el.remove(), 400) }
+    }
+    // Sécurité : masquer automatiquement après 2 secondes
+    // (au cas où React tarde ou __hideLoader n'est pas appelé)
+    setTimeout(window.__hideLoader, 2000)
+
+    // Enregistrement du Service Worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', async () => {
+        try {
+          const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          console.log('[PWA] Service Worker enregistré ✅', reg.scope)
+
+          // Mise à jour disponible → notifier l'utilisateur
+          reg.addEventListener('updatefound', () => {
+            const worker = reg.installing
+            if (!worker) return
+            worker.addEventListener('statechange', () => {
+              if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                // Nouvelle version disponible
+                window.dispatchEvent(new CustomEvent('sw-update-available'))
+              }
+            })
+          })
+
+          // Écouter les messages du SW (navigation)
+          navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data?.type === 'navigate') {
+              window.dispatchEvent(new CustomEvent('sw-navigate', { detail: event.data }))
+            }
+          })
+
+        } catch (err) {
+          console.warn('[PWA] SW enregistrement échoué:', err)
+        }
+      })
+    }
+  </script>
+
+  <script type="module" src="/src/main.jsx"></script>
+</body>
 </html>
