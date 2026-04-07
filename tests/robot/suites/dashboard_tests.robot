@@ -9,11 +9,18 @@ Suite Setup       Ouvrir Navigateur
 Suite Teardown    Fermer Navigateur
 
 *** Variables ***
-${BASE_URL}       http://localhost
-${API_URL}        http://localhost
+# ✅ FIX : Ports explicites (frontend=5173, backend=3001 en CI)
+${BASE_URL}       http://localhost:5173
+${API_URL}        http://localhost:3001
 ${LOGIN}          hadavidh@gmail.com
 ${PASSWORD}       J!09O1$3OCOkURUjOPEv
 ${TIMEOUT}        15s
+
+# Sélecteurs centralisés — modifier ici si le HTML change
+${SEL_EMAIL}      css=input[type="email"]
+${SEL_PASSWORD}   css=input[type="password"]
+${SEL_SUBMIT}     css=button[type="submit"]
+${SEL_DASHBOARD}  css=.hdr-title
 
 *** Test Cases ***
 
@@ -21,7 +28,9 @@ TC01 - Page de login accessible
     [Documentation]    La page de login charge correctement
     [Tags]    smoke    login
     Go To    ${BASE_URL}
-    Wait For Elements State    css=input    visible    timeout=${TIMEOUT}
+    # ✅ FIX : css=input matchait les 2 champs → strict mode violation
+    #          On attend le champ email spécifiquement
+    Wait For Elements State    ${SEL_EMAIL}    visible    timeout=${TIMEOUT}
     Take Screenshot    filename=${CURDIR}/../../reports/screenshots/tc01_login.png
 
 TC02 - Login avec identifiants valides
@@ -29,39 +38,43 @@ TC02 - Login avec identifiants valides
     [Tags]    smoke    login    auth
     Go To    ${BASE_URL}
     ${need_login}=    Run Keyword And Return Status
-    ...    Wait For Elements State    css=input[type="password"]    visible    timeout=5s
+    ...    Wait For Elements State    ${SEL_PASSWORD}    visible    timeout=5s
     IF    ${need_login}
-        Fill Text    css=input[type="email"], input[type="text"]    ${LOGIN}
-        Fill Text    css=input[type="password"]    ${PASSWORD}
-        Click    css=button[type="submit"]
+        # ✅ FIX : suppression du sélecteur CSS avec virgule (non supporté en strict mode)
+        Fill Text    ${SEL_EMAIL}       ${LOGIN}
+        Fill Text    ${SEL_PASSWORD}    ${PASSWORD}
+        Click        ${SEL_SUBMIT}
     END
-    Wait For Elements State    css=.hdr-title    visible    timeout=${TIMEOUT}
+    Wait For Elements State    ${SEL_DASHBOARD}    visible    timeout=${TIMEOUT}
     Take Screenshot    filename=${CURDIR}/../../reports/screenshots/tc02_dashboard.png
 
 TC03 - Login avec mauvais mot de passe
     [Documentation]    Mauvais password → pas de dashboard
     [Tags]    login    securite
     Go To    ${BASE_URL}
-    Wait For Elements State    css=input[type="password"]    visible    timeout=${TIMEOUT}
-    Fill Text    css=input[type="email"], input[type="text"]    ${LOGIN}
-    Fill Text    css=input[type="password"]    mauvais_mdp_123
-    Click    css=button[type="submit"]
+    Wait For Elements State    ${SEL_PASSWORD}    visible    timeout=${TIMEOUT}
+    # ✅ FIX : sélecteur email précis
+    Fill Text    ${SEL_EMAIL}       ${LOGIN}
+    Fill Text    ${SEL_PASSWORD}    mauvais_mdp_123
+    Click        ${SEL_SUBMIT}
     Sleep    2s
     Take Screenshot    filename=${CURDIR}/../../reports/screenshots/tc03_login_error.png
     ${on_dashboard}=    Run Keyword And Return Status
-    ...    Wait For Elements State    css=.hdr-title    visible    timeout=3s
+    ...    Wait For Elements State    ${SEL_DASHBOARD}    visible    timeout=3s
     Should Not Be True    ${on_dashboard}
 
 TC04 - Login avec champs vides
-    [Documentation]    Soumission sans credentials
+    [Documentation]    Soumission sans credentials → pas de redirection
     [Tags]    login    validation
     Go To    ${BASE_URL}
     ${login_page}=    Run Keyword And Return Status
-    ...    Wait For Elements State    css=input[type="password"]    visible    timeout=5s
+    ...    Wait For Elements State    ${SEL_PASSWORD}    visible    timeout=5s
     IF    ${login_page}
-        Click    css=button[type="submit"]
+        Click    ${SEL_SUBMIT}
         Sleep    1s
         Take Screenshot    filename=${CURDIR}/../../reports/screenshots/tc04_empty.png
+        # ✅ Vérifier qu'on est toujours sur la page login
+        Wait For Elements State    ${SEL_EMAIL}    visible    timeout=5s
     END
 
 TC05 - Dashboard affiche les paires Forex
@@ -91,6 +104,7 @@ TC07 - Toggle AutoMode change l'état
     ${texte_apres}=    Get Text    xpath=//button[contains(.,'AutoBot')]
     Should Not Be Equal    ${texte_avant}    ${texte_apres}
     Take Screenshot    filename=${CURDIR}/../../reports/screenshots/tc07_toggle.png
+    # Remettre en état initial
     Click    xpath=//button[contains(.,'AutoBot')]
     Sleep    0.5s
 
@@ -138,6 +152,7 @@ TC12 - Filtre BUY fonctionne
     [Documentation]    Cliquer BUY filtre les paires
     [Tags]    dashboard    filtres
     Se Connecter
+    # ✅ FIX : port explicite dans l'URL API
     GET    ${API_URL}/api/test    expected_status=200
     Sleep    1s
     Click    xpath=//button[contains(.,'BUY')]
@@ -167,7 +182,7 @@ TC15 - Affichage mobile 375px
     [Tags]    responsive    mobile
     Set Viewport Size    375    812
     Se Connecter
-    Wait For Elements State    css=.hdr-title    visible    timeout=${TIMEOUT}
+    Wait For Elements State    ${SEL_DASHBOARD}    visible    timeout=${TIMEOUT}
     Take Screenshot    filename=${CURDIR}/../../reports/screenshots/tc15_mobile.png
     Set Viewport Size    1280    800
 
@@ -190,13 +205,15 @@ Fermer Navigateur
     Close Browser
 
 Se Connecter
+    [Documentation]    Va sur l'app, se connecte si la page login est visible
     Go To    ${BASE_URL}
     Wait Until Network Is Idle    timeout=${TIMEOUT}
     ${need_login}=    Run Keyword And Return Status
-    ...    Wait For Elements State    css=input[type="password"]    visible    timeout=5s
+    ...    Wait For Elements State    ${SEL_PASSWORD}    visible    timeout=5s
     IF    ${need_login}
-        Fill Text    css=input[type="email"], input[type="text"]    ${LOGIN}
-        Fill Text    css=input[type="password"]    ${PASSWORD}
-        Click    css=button[type="submit"]
-        Wait For Elements State    css=.hdr-title    visible    timeout=${TIMEOUT}
+        # ✅ FIX : sélecteurs précis sans virgule CSS
+        Fill Text    ${SEL_EMAIL}       ${LOGIN}
+        Fill Text    ${SEL_PASSWORD}    ${PASSWORD}
+        Click        ${SEL_SUBMIT}
+        Wait For Elements State    ${SEL_DASHBOARD}    visible    timeout=${TIMEOUT}
     END
