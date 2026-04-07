@@ -12,7 +12,7 @@ Suite Teardown    Fermer Navigateur
 ${BASE_URL}       http://localhost
 ${API_URL}        http://localhost
 ${LOGIN}          hadavidh@gmail.com
-${PASSWORD}       motdepasse
+${PASSWORD}       J!09O1$3OCOkURUjOPEv
 ${TIMEOUT}        15s
 
 *** Test Cases ***
