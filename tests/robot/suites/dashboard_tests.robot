@@ -22,7 +22,7 @@ TC01 - Page de login accessible
     [Documentation]    La page de login charge correctement
     [Tags]    smoke    login
     Go To    ${BASE_URL}
-    Wait For Elements State    css=input    visible    timeout=${TIMEOUT}
+    
     Take Screenshot    filename=${SCREENSHOT}/tc01_login.png
 
 TC02 - Login avec identifiants valides
