@@ -1,0 +1,315 @@
+---
+# ════════════════════════════════════════════════════════════════
+# infra/ansible/playbook.yml
+# Configure le VPS OVH — installe Docker, déploie prod + staging
+#
+# Usage :
+#   ansible-playbook -i inventory.yml playbook.yml
+#
+# Pour tester sans rien modifier (dry-run) :
+#   ansible-playbook -i inventory.yml playbook.yml --check
+# ════════════════════════════════════════════════════════════════
+
+- name: Configure ICT Trading Dashboard VPS
+  hosts: vps_prod
+  become: true
+
+  vars:
+    project_dir: /home/ubuntu/dockerFX
+    data_dir:    /home/ubuntu/dockerFX/data
+
+  tasks:
+
+    # ════════════════════════════════════════════════════════════
+    # 1. SYSTÈME
+    # ════════════════════════════════════════════════════════════
+
+    - name: Mise à jour des paquets
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      tags: system
+
+    - name: Installer les utilitaires essentiels
+      apt:
+        name:
+          - curl
+          - wget
+          - git
+          - nano
+          - htop
+          - ufw
+          - certbot
+          - python3-certbot-nginx
+        state: present
+      tags: system
+
+    # ════════════════════════════════════════════════════════════
+    # 2. DOCKER
+    # ════════════════════════════════════════════════════════════
+
+    - name: Vérifier si Docker est déjà installé
+      command: docker --version
+      register: docker_installed
+      ignore_errors: yes
+      changed_when: false
+      tags: docker
+
+    - name: Installer Docker (si absent)
+      shell: curl -fsSL https://get.docker.com | sh
+      when: docker_installed.rc != 0
+      tags: docker
+
+    - name: Ajouter ubuntu au groupe docker
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+      tags: docker
+
+    - name: Installer Docker Compose plugin
+      apt:
+        name: docker-compose-plugin
+        state: present
+      tags: docker
+
+    - name: Démarrer et activer Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+      tags: docker
+
+    # ════════════════════════════════════════════════════════════
+    # 3. FIREWALL UFW
+    # ════════════════════════════════════════════════════════════
+
+    - name: Firewall — autoriser SSH
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+      tags: firewall
+
+    - name: Firewall — autoriser HTTP (production)
+      ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+      tags: firewall
+
+    - name: Firewall — autoriser HTTPS
+      ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+      tags: firewall
+
+    - name: Firewall — autoriser Staging (port 8080)
+      ufw:
+        rule: allow
+        port: "8080"
+        proto: tcp
+      tags: firewall
+
+    - name: Firewall — autoriser Grafana (port 3000)
+      ufw:
+        rule: allow
+        port: "3000"
+        proto: tcp
+      tags: firewall
+
+    - name: Activer UFW
+      ufw:
+        state: enabled
+        policy: deny
+        logging: on
+      tags: firewall
+
+    # ════════════════════════════════════════════════════════════
+    # 4. DOSSIERS
+    # ════════════════════════════════════════════════════════════
+
+    - name: Créer le dossier projet
+      file:
+        path: "{{ project_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+      tags: dirs
+
+    - name: Créer le dossier data (persistance)
+      file:
+        path: "{{ data_dir }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+      tags: dirs
+
+    - name: Créer le dossier nginx
+      file:
+        path: "{{ project_dir }}/nginx"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+      tags: dirs
+
+    # ════════════════════════════════════════════════════════════
+    # 5. COPIE DES FICHIERS DE CONFIG (générés par Terraform)
+    # ════════════════════════════════════════════════════════════
+
+    - name: Copier docker-compose.prod.yml
+      copy:
+        src:   "{{ playbook_dir }}/../../docker-compose.prod.yml"
+        dest:  "{{ project_dir }}/docker-compose.prod.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0644'
+      tags: config
+
+    - name: Copier docker-compose.staging.yml
+      copy:
+        src:   "{{ playbook_dir }}/../../docker-compose.staging.yml"
+        dest:  "{{ project_dir }}/docker-compose.staging.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0644'
+      tags: config
+
+    - name: Copier nginx.conf
+      copy:
+        src:   "{{ playbook_dir }}/../../nginx/nginx.conf"
+        dest:  "{{ project_dir }}/nginx/nginx.conf"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0644'
+      tags: config
+
+    # ════════════════════════════════════════════════════════════
+    # 6. FICHIERS .env
+    # ════════════════════════════════════════════════════════════
+
+    - name: Vérifier si .env.prod existe
+      stat:
+        path: "{{ project_dir }}/.env.prod"
+      register: env_prod
+      tags: env
+
+    - name: Créer .env.prod vide si absent
+      copy:
+        content: |
+          # Remplir avec les vraies valeurs
+          # Les secrets sont dans GitHub Secrets pour le CI/CD
+          PORT=3001
+          NODE_ENV=production
+        dest:  "{{ project_dir }}/.env.prod"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0600'
+      when: not env_prod.stat.exists
+      tags: env
+
+    - name: Vérifier si .env.staging existe
+      stat:
+        path: "{{ project_dir }}/.env.staging"
+      register: env_staging
+      tags: env
+
+    - name: Créer .env.staging depuis l'exemple
+      copy:
+        src:   "{{ playbook_dir }}/../../.env.staging.example"
+        dest:  "{{ project_dir }}/.env.staging"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0600'
+      when: not env_staging.stat.exists
+      tags: env
+
+    # ════════════════════════════════════════════════════════════
+    # 7. DÉPLOIEMENT
+    # ════════════════════════════════════════════════════════════
+
+    - name: Pull images Docker — production
+      shell: |
+        cd {{ project_dir }}
+        docker compose -p prod -f docker-compose.prod.yml pull
+      become_user: ubuntu
+      ignore_errors: yes
+      tags: deploy
+
+    - name: Démarrer la PRODUCTION
+      shell: |
+        cd {{ project_dir }}
+        docker compose -p prod -f docker-compose.prod.yml up -d
+      become_user: ubuntu
+      tags: deploy
+
+    - name: Pull images Docker — staging
+      shell: |
+        cd {{ project_dir }}
+        docker compose -p staging -f docker-compose.staging.yml pull
+      become_user: ubuntu
+      ignore_errors: yes
+      tags: deploy
+
+    - name: Démarrer le STAGING
+      shell: |
+        cd {{ project_dir }}
+        docker compose -p staging -f docker-compose.staging.yml up -d
+      become_user: ubuntu
+      tags: deploy
+
+    # ════════════════════════════════════════════════════════════
+    # 8. VÉRIFICATIONS
+    # ════════════════════════════════════════════════════════════
+
+    - name: Attendre que la production démarre
+      wait_for:
+        port: 80
+        host: localhost
+        delay: 5
+        timeout: 60
+      tags: verify
+
+    - name: Attendre que le staging démarre
+      wait_for:
+        port: 8080
+        host: localhost
+        delay: 5
+        timeout: 60
+      tags: verify
+
+    - name: Vérifier health check production
+      uri:
+        url: "http://localhost/health"
+        status_code: 200
+      retries: 5
+      delay: 5
+      tags: verify
+
+    - name: Vérifier health check staging
+      uri:
+        url: "http://localhost:8080/health"
+        status_code: 200
+      retries: 5
+      delay: 5
+      ignore_errors: yes
+      tags: verify
+
+    # ════════════════════════════════════════════════════════════
+    # 9. RÉSUMÉ FINAL
+    # ════════════════════════════════════════════════════════════
+
+    - name: Afficher le résumé
+      debug:
+        msg:
+          - "╔════════════════════════════════════════╗"
+          - "║  ✅  Déploiement terminé !              ║"
+          - "╠════════════════════════════════════════╣"
+          - "║  🟢 Production : http://{{ ansible_host }}    ║"
+          - "║  🔵 Staging    : http://{{ ansible_host }}:8080 ║"
+          - "║  📊 Grafana    : http://{{ ansible_host }}:3000 ║"
+          - "╚════════════════════════════════════════╝"
+      tags: always

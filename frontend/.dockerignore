@@ -1,0 +1,53 @@
+# ════════════════════════════════════════════════════════════════
+# backend/.dockerignore
+# Fichiers exclus de l'image Docker backend
+# Important : évite d'inclure les secrets dans l'image !
+# ════════════════════════════════════════════════════════════════
+
+# Dépendances (réinstallées dans le Dockerfile)
+node_modules/
+
+# Secrets — JAMAIS dans une image Docker
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Tests (pas besoin en prod)
+tests/
+reports/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+README.md
+docs/
+
+# Données persistantes (montées en volume)
+data/
+
+# Config IDE
+.vscode/
+.idea/
+
+---
+# ════════════════════════════════════════════════════════════════
+# frontend/.dockerignore
+# Fichiers exclus de l'image Docker frontend
+# ════════════════════════════════════════════════════════════════
+
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+.git/
+.gitignore
+README.md
+tests/
