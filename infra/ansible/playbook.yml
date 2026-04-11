@@ -6,8 +6,12 @@
 # Usage :
 #   ansible-playbook -i inventory.yml playbook.yml
 #
-# Pour tester sans rien modifier (dry-run) :
-#   ansible-playbook -i inventory.yml playbook.yml --check
+# Tags disponibles :
+#   system, docker, firewall, dirs, config, env, swarm, staging, verify
+#
+# Exemples :
+#   ansible-playbook -i inventory.yml playbook.yml --tags swarm
+#   ansible-playbook -i inventory.yml playbook.yml --tags staging
 # ════════════════════════════════════════════════════════════════
 
 - name: Configure ICT Trading Dashboard VPS
@@ -160,15 +164,6 @@
     # 5. COPIE DES FICHIERS DE CONFIG (générés par Terraform)
     # ════════════════════════════════════════════════════════════
 
-    - name: Copier docker-compose.prod.yml
-      copy:
-        src:   "{{ playbook_dir }}/../../docker-compose.prod.yml"
-        dest:  "{{ project_dir }}/docker-compose.prod.yml"
-        owner: ubuntu
-        group: ubuntu
-        mode:  '0644'
-      tags: config
-
     - name: Copier docker-compose.staging.yml
       copy:
         src:   "{{ playbook_dir }}/../../docker-compose.staging.yml"
@@ -178,13 +173,32 @@
         mode:  '0644'
       tags: config
 
-    - name: Copier nginx.conf
+    - name: Copier docker-stack.prod.yml
       copy:
-        src:   "{{ playbook_dir }}/../../nginx/nginx.conf"
-        dest:  "{{ project_dir }}/nginx/nginx.conf"
+        src:   "{{ playbook_dir }}/../../docker-stack.prod.yml"
+        dest:  "{{ project_dir }}/docker-stack.prod.yml"
         owner: ubuntu
         group: ubuntu
         mode:  '0644'
+      tags: config
+
+#     - name: Copier nginx.conf
+#       copy:
+#         src:   "{{ playbook_dir }}/../../nginx/nginx.conf"
+#         dest:  "{{ project_dir }}/nginx/nginx.conf"
+#         owner: ubuntu
+#         group: ubuntu
+#         mode:  '0644'
+#       tags: config
+
+    - name: Copier nginx.staging.conf
+      copy:
+        src:   "{{ playbook_dir }}/../../frontend/nginx.staging.conf"
+        dest:  "{{ project_dir }}/frontend/nginx.staging.conf"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0644'
+      ignore_errors: yes
       tags: config
 
     # ════════════════════════════════════════════════════════════
@@ -200,8 +214,6 @@
     - name: Créer .env.prod vide si absent
       copy:
         content: |
-          # Remplir avec les vraies valeurs
-          # Les secrets sont dans GitHub Secrets pour le CI/CD
           PORT=3001
           NODE_ENV=production
         dest:  "{{ project_dir }}/.env.prod"
@@ -228,23 +240,88 @@
       tags: env
 
     # ════════════════════════════════════════════════════════════
-    # 7. DÉPLOIEMENT
+    # 7. DOCKER SWARM — Production (1 replica backend + 1 frontend)
     # ════════════════════════════════════════════════════════════
 
-    - name: Pull images Docker — production
-      shell: |
-        cd {{ project_dir }}
-        docker compose -p prod -f docker-compose.prod.yml pull
+    - name: Vérifier si Swarm est déjà initialisé
+      command: docker info --format '{{ '{{' }}.Swarm.LocalNodeState{{ '}}' }}'
+      register: swarm_state
+      changed_when: false
+      become_user: ubuntu
+      tags: swarm
+
+    - name: Initialiser Docker Swarm
+      command: docker swarm init --advertise-addr 135.125.196.204
+      when: swarm_state.stdout != "active"
+      become_user: ubuntu
+      tags: swarm
+
+    - name: Swarm initialisé — afficher statut
+      debug:
+        msg: "Docker Swarm actif ✅ ({{ swarm_state.stdout }})"
+      tags: swarm
+
+    - name: Pull image backend depuis DockerHub
+      shell: docker pull dave67000/ict-trading-backend:latest
       become_user: ubuntu
       ignore_errors: yes
-      tags: deploy
+      tags: swarm
 
-    - name: Démarrer la PRODUCTION
+    - name: Pull image frontend depuis DockerHub
+      shell: docker pull dave67000/ict-trading-frontend:latest
+      become_user: ubuntu
+      ignore_errors: yes
+      tags: swarm
+
+    - name: Supprimer la stack existante si présente
+      shell: docker stack rm ict-prod || true
+      become_user: ubuntu
+      tags: swarm
+
+    - name: Attendre que la stack soit supprimée
+      shell: |
+        until [ -z "$(docker service ls --filter name=ict-prod -q)" ]; do
+          sleep 2
+        done
+      become_user: ubuntu
+      tags: swarm
+
+    - name: Déployer la stack Swarm — PRODUCTION (1+1 replicas)
       shell: |
         cd {{ project_dir }}
-        docker compose -p prod -f docker-compose.prod.yml up -d
+        docker stack deploy \
+          -c docker-stack.prod.yml \
+          --with-registry-auth \
+          ict-prod
       become_user: ubuntu
-      tags: deploy
+      tags: swarm
+
+    - name: Attendre que les services Swarm démarrent
+      shell: |
+        docker service ls --filter name=ict-prod \
+          --format "{{ '{{' }}.Replicas{{ '}}' }}"
+      register: swarm_replicas
+      retries: 4
+      delay: 10
+      until: "'0/' not in swarm_replicas.stdout"
+      become_user: ubuntu
+      ignore_errors: yes
+      tags: swarm
+
+    - name: Afficher l'état des services Swarm
+      shell: docker service ls
+      register: swarm_services
+      become_user: ubuntu
+      tags: swarm
+
+    - name: Résumé services Swarm
+      debug:
+        msg: "{{ swarm_services.stdout_lines }}"
+      tags: swarm
+
+    # ════════════════════════════════════════════════════════════
+    # 8. DOCKER COMPOSE — Staging (simple, pas de Swarm)
+    # ════════════════════════════════════════════════════════════
 
     - name: Pull images Docker — staging
       shell: |
@@ -252,33 +329,34 @@
         docker compose -p staging -f docker-compose.staging.yml pull
       become_user: ubuntu
       ignore_errors: yes
-      tags: deploy
+      tags: staging
 
     - name: Démarrer le STAGING
       shell: |
         cd {{ project_dir }}
         docker compose -p staging -f docker-compose.staging.yml up -d
       become_user: ubuntu
-      tags: deploy
+      tags: staging
 
     # ════════════════════════════════════════════════════════════
-    # 8. VÉRIFICATIONS
+    # 9. VÉRIFICATIONS
     # ════════════════════════════════════════════════════════════
 
-    - name: Attendre que la production démarre
+    - name: Attendre que la production réponde (port 80)
       wait_for:
         port: 80
         host: localhost
-        delay: 5
-        timeout: 60
+        delay: 10
+        timeout: 90
       tags: verify
 
-    - name: Attendre que le staging démarre
+    - name: Attendre que le staging réponde (port 8080)
       wait_for:
         port: 8080
         host: localhost
         delay: 5
         timeout: 60
+      ignore_errors: yes
       tags: verify
 
     - name: Vérifier health check production
@@ -299,17 +377,27 @@
       tags: verify
 
     # ════════════════════════════════════════════════════════════
-    # 9. RÉSUMÉ FINAL
+    # 10. RÉSUMÉ FINAL
     # ════════════════════════════════════════════════════════════
 
-    - name: Afficher le résumé
+    - name: Afficher le résumé final
       debug:
         msg:
-          - "╔════════════════════════════════════════╗"
-          - "║  ✅  Déploiement terminé !              ║"
-          - "╠════════════════════════════════════════╣"
-          - "║  🟢 Production : http://{{ ansible_host }}    ║"
-          - "║  🔵 Staging    : http://{{ ansible_host }}:8080 ║"
-          - "║  📊 Grafana    : http://{{ ansible_host }}:3000 ║"
-          - "╚════════════════════════════════════════╝"
+          - "╔══════════════════════════════════════════════╗"
+          - "║  ✅  Déploiement terminé !                   ║"
+          - "╠══════════════════════════════════════════════╣"
+          - "║  🟢 Production (Swarm)                       ║"
+          - "║     http://{{ ansible_host }}                ║"
+          - "║     backend  : 1 replica                     ║"
+          - "║     frontend : 1 replica                     ║"
+          - "╠══════════════════════════════════════════════╣"
+          - "║  🔵 Staging (Compose)                        ║"
+          - "║     http://{{ ansible_host }}:8080           ║"
+          - "╠══════════════════════════════════════════════╣"
+          - "║  📊 Grafana                                  ║"
+          - "║     http://{{ ansible_host }}:3000           ║"
+          - "╠══════════════════════════════════════════════╣"
+          - "║  🐳 Swarm scaling :                          ║"
+          - "║  docker service scale ict-prod_backend=3     ║"
+          - "╚══════════════════════════════════════════════╝"
       tags: always

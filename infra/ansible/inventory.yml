@@ -1,14 +1,16 @@
+# Généré automatiquement par Terraform — ne pas modifier
+
 all:
   hosts:
     vps_prod:
-      ansible_host: localhost
+      ansible_host:       localhost
       ansible_connection: local
-      ansible_user: ubuntu
+      ansible_user:       ubuntu
 
   vars:
-    project_name:  ict-trading
-    project_dir:   /home/ubuntu/dockerFX
-    prod_port:     80
-    staging_port:  8080
-    backend_image: dave67000/ict-trading-backend
+    project_name:   ict-trading
+    project_dir:    /home/ubuntu/dockerFX
+    prod_port:      80
+    staging_port:   8080
+    backend_image:  dave67000/ict-trading-backend
     frontend_image: dave67000/ict-trading-frontend

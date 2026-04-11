@@ -1,10 +1,8 @@
 # ╔══════════════════════════════════════════════════════════╗
 # ║  STAGING — ICT Trading Dashboard                        ║
 # ║  Généré automatiquement par Terraform                   ║
-# ║  Accessible sur http://135.125.196.204:8080             ║
+# ║  Accessible sur http://135.125.196.204:8080               ║
 # ╚══════════════════════════════════════════════════════════╝
-
-version: '3.9'
 
 services:
 

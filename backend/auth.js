@@ -55,7 +55,7 @@ function loginRoute(req, res) {
 // ── Middleware de protection ─────────────────────────────────────
 function requireAuth(req, res, next) {
   // Whitelist : pas d'auth pour le webhook TradingView
-  const pub = ['/webhook', '/health', '/auth/login']
+  const pub = ['/webhook', '/health', '/api/auth/login']
   if (pub.some(p => req.path.startsWith(p))) return next()
 
   // WebSocket upgrade — pas de middleware classique

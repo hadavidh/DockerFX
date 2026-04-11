@@ -21,8 +21,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 
 app.use(cors())
 app.use(express.json())
+app.post('/api/auth/login', loginRoute)
 app.use(requireAuth)
-app.post('/auth/login', loginRoute)
 
 // ── Variables d'environnement ─────────────────────────────────────
 const PORT             = process.env.PORT                    || 3001

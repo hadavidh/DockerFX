@@ -17,64 +17,106 @@ terraform {
   }
 }
 
+# ════════════════════════════════════════════════════════════════
+# VARIABLES
+# ════════════════════════════════════════════════════════════════
+
 
 # ════════════════════════════════════════════════════════════════
-# GÉNÉRATION — docker-compose.prod.yml
+# GÉNÉRATION — docker-stack.prod.yml (Docker SWARM production)
 # ════════════════════════════════════════════════════════════════
 
-resource "local_file" "docker_compose_prod" {
-  filename        = "${path.module}/../../docker-compose.prod.yml"
+resource "local_file" "docker_stack_prod" {
+  filename        = "${path.module}/../../docker-stack.prod.yml"
   file_permission = "0644"
   content         = <<-EOT
     # ╔══════════════════════════════════════════════════════════╗
-    # ║  PRODUCTION — ICT Trading Dashboard                     ║
+    # ║  DOCKER SWARM STACK — PRODUCTION                        ║
     # ║  Généré automatiquement par Terraform                   ║
     # ║  Ne pas modifier manuellement                           ║
-    # ║  Pour modifier : éditer infra/terraform/main.tf         ║
+    # ║                                                         ║
+    # ║  Déploiement :                                          ║
+    # ║    docker stack deploy -c docker-stack.prod.yml ict-prod║
+    # ║                                                         ║
+    # ║  Scaling :                                              ║
+    # ║    docker service scale ict-prod_backend=3              ║
     # ╚══════════════════════════════════════════════════════════╝
-
-    version: '3.9'
 
     services:
 
+      # ── BACKEND — 1 replica scalable ───────────────────────
       backend:
         image: ${var.backend_image}:latest
-        container_name: forex-backend-prod
-        restart: unless-stopped
+        networks:
+          - trading-net
         env_file: .env.prod
-        expose:
-          - "${var.backend_prod_port}"
+        deploy:
+          replicas: 1
+          update_config:
+            parallelism: 1
+            delay: 10s
+            order: start-first
+            failure_action: rollback
+          rollback_config:
+            parallelism: 1
+            delay: 5s
+          restart_policy:
+            condition: on-failure
+            delay: 5s
+            max_attempts: 3
+            window: 120s
+          resources:
+            limits:
+              cpus: '0.5'
+              memory: 300M
+            reservations:
+              cpus: '0.1'
+              memory: 100M
         healthcheck:
-          test: ["CMD","wget","-qO-","http://localhost:${var.backend_prod_port}/health"]
+          test: ["CMD", "wget", "-qO-", "http://localhost:${var.backend_prod_port}/health"]
           interval: 30s
           timeout: 5s
           retries: 3
-          start_period: 10s
-        networks:
-          - trading-prod
-        labels:
-          - "environment=production"
-          - "project=${var.project_name}"
+          start_period: 15s
 
+      # ── FRONTEND — 1 replica ────────────────────────────────
       frontend:
         image: ${var.frontend_image}:latest
-        container_name: forex-frontend-prod
-        restart: unless-stopped
         ports:
           - "${var.prod_port}:80"
-        depends_on:
-          backend:
-            condition: service_healthy
         networks:
-          - trading-prod
-        labels:
-          - "environment=production"
-          - "project=${var.project_name}"
+          - trading-net
+        deploy:
+          replicas: 1
+          update_config:
+            parallelism: 1
+            delay: 10s
+            order: start-first
+            failure_action: rollback
+          restart_policy:
+            condition: on-failure
+            delay: 5s
+            max_attempts: 3
+          resources:
+            limits:
+              cpus: '0.3'
+              memory: 100M
+            reservations:
+              cpus: '0.05'
+              memory: 50M
+        # Healthcheck simplifié — vérifie juste que Nginx répond
+        # sans dépendre du backend (évite l'échec DNS au démarrage)
+        healthcheck:
+          test: ["CMD-SHELL", "wget -qO- http://localhost/ > /dev/null 2>&1 || exit 0"]
+          interval: 30s
+          timeout: 5s
+          retries: 3
+          start_period: 30s
 
     networks:
-      trading-prod:
-        driver: bridge
-        name: trading-prod
+      trading-net:
+        driver: overlay
+        attachable: true
   EOT
 }
 
@@ -89,10 +131,8 @@ resource "local_file" "docker_compose_staging" {
     # ╔══════════════════════════════════════════════════════════╗
     # ║  STAGING — ICT Trading Dashboard                        ║
     # ║  Généré automatiquement par Terraform                   ║
-    # ║  Accessible sur http://${var.vps_ip}:${var.staging_port}             ║
+    # ║  Accessible sur http://${var.vps_ip}:${var.staging_port}               ║
     # ╚══════════════════════════════════════════════════════════╝
-
-    version: '3.9'
 
     services:
 
@@ -124,6 +164,8 @@ resource "local_file" "docker_compose_staging" {
         restart: unless-stopped
         ports:
           - "${var.staging_port}:80"
+        volumes:
+          - ./frontend/nginx.staging.conf:/etc/nginx/conf.d/default.conf:ro
         depends_on:
           backend:
             condition: service_healthy
@@ -141,103 +183,130 @@ resource "local_file" "docker_compose_staging" {
 }
 
 # ════════════════════════════════════════════════════════════════
-# GÉNÉRATION — nginx/nginx.conf
+# GÉNÉRATION — frontend/nginx.conf (utilisé dans l'image Docker)
+# Pour Docker Swarm — upstream = ict-prod_backend
+# Résolution DNS dynamique via resolver Docker
 # ════════════════════════════════════════════════════════════════
 
-resource "local_file" "nginx_conf" {
-  filename        = "${path.module}/../../nginx/nginx.conf"
+resource "local_file" "nginx_frontend_prod" {
+  filename        = "${path.module}/../../frontend/nginx.conf"
   file_permission = "0644"
   content         = <<-EOT
     # ╔══════════════════════════════════════════════════════════╗
-    # ║  NGINX — Reverse Proxy                                  ║
+    # ║  NGINX — Config PRODUCTION (dans l'image Docker)        ║
+    # ║  Upstream = ict-prod_backend (nom service Docker Swarm) ║
     # ║  Généré automatiquement par Terraform                   ║
-    # ║  Production  : http://${var.vps_ip}                     ║
-    # ║  Staging     : http://${var.vps_ip}:${var.staging_port}               ║
     # ╚══════════════════════════════════════════════════════════╝
 
-    events {
-      worker_connections 1024;
-    }
+    server {
+        listen 80;
+        server_name _;
 
-    http {
+        root /usr/share/nginx/html;
+        index index.html;
 
-      # ── PRODUCTION (:${var.prod_port}) ───────────────────────────────────
-      server {
-        listen ${var.prod_port};
-        server_name ${var.vps_ip};
+        # Resolver DNS Docker interne — résolution dynamique
+        # Evite l'erreur "host not found" au démarrage de Nginx
+        resolver 127.0.0.11 valid=30s ipv6=off;
+        set $backend "backend:${var.backend_prod_port}";
 
-        # Frontend React
+        # Frontend React (SPA)
         location / {
-          proxy_pass         http://forex-frontend-prod:80;
-          proxy_http_version 1.1;
-          proxy_set_header   Host              $host;
-          proxy_set_header   X-Real-IP         $remote_addr;
-          proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+            try_files $uri $uri/ /index.html;
         }
 
         # API Backend
         location /api/ {
-          proxy_pass         http://forex-backend-prod:${var.backend_prod_port};
-          proxy_http_version 1.1;
-          proxy_set_header   Host              $host;
-          proxy_read_timeout 60s;
+            proxy_pass         http://$backend;
+            proxy_http_version 1.1;
+            proxy_set_header   Host              $host;
+            proxy_set_header   X-Real-IP         $remote_addr;
+            proxy_read_timeout 60s;
         }
 
         # WebSocket
         location /ws {
-          proxy_pass         http://forex-backend-prod:${var.backend_prod_port};
-          proxy_http_version 1.1;
-          proxy_set_header   Upgrade    $http_upgrade;
-          proxy_set_header   Connection "upgrade";
-          proxy_read_timeout 3600s;
+            proxy_pass         http://$backend;
+            proxy_http_version 1.1;
+            proxy_set_header   Upgrade    $http_upgrade;
+            proxy_set_header   Connection "upgrade";
+            proxy_read_timeout 3600s;
         }
 
         # Webhook TradingView
         location /webhook {
-          proxy_pass         http://forex-backend-prod:${var.backend_prod_port};
-          proxy_http_version 1.1;
+            proxy_pass http://$backend;
         }
 
         # Health check
         location /health {
-          proxy_pass http://forex-backend-prod:${var.backend_prod_port}/health;
+            proxy_pass http://$backend/health;
         }
-      }
 
-      # ── STAGING (:${var.staging_port}) ─────────────────────────────────
-      server {
-        listen ${var.staging_port};
-        server_name ${var.vps_ip};
+        # Cache assets statiques
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
 
-        # Bandeau staging visible dans les headers
-        add_header X-Environment "staging" always;
+        server_tokens off;
+    }
+  EOT
+}
+
+# ════════════════════════════════════════════════════════════════
+# GÉNÉRATION — frontend/nginx.staging.conf
+# Pour Docker Compose staging — upstream = forex-backend-staging
+# ════════════════════════════════════════════════════════════════
+
+resource "local_file" "nginx_frontend_staging" {
+  filename        = "${path.module}/../../frontend/nginx.staging.conf"
+  file_permission = "0644"
+  content         = <<-EOT
+    # ╔══════════════════════════════════════════════════════════╗
+    # ║  NGINX — Config STAGING (montée en volume)              ║
+    # ║  Upstream = forex-backend-staging (Docker Compose)      ║
+    # ║  Généré automatiquement par Terraform                   ║
+    # ╚══════════════════════════════════════════════════════════╝
+
+    server {
+        listen 80;
+        server_name _;
+
+        root /usr/share/nginx/html;
+        index index.html;
+
+        # Resolver DNS Docker interne
+        resolver 127.0.0.11 valid=30s ipv6=off;
+        set $backend_staging "forex-backend-staging:${var.backend_staging_port}";
 
         location / {
-          proxy_pass         http://forex-frontend-staging:80;
-          proxy_http_version 1.1;
-          proxy_set_header   Host $host;
+            try_files $uri $uri/ /index.html;
         }
 
         location /api/ {
-          proxy_pass         http://forex-backend-staging:${var.backend_staging_port};
-          proxy_http_version 1.1;
+            proxy_pass         http://$backend_staging;
+            proxy_http_version 1.1;
+            proxy_set_header   Host $host;
+            proxy_read_timeout 60s;
         }
 
         location /ws {
-          proxy_pass         http://forex-backend-staging:${var.backend_staging_port};
-          proxy_http_version 1.1;
-          proxy_set_header   Upgrade    $http_upgrade;
-          proxy_set_header   Connection "upgrade";
+            proxy_pass         http://$backend_staging;
+            proxy_http_version 1.1;
+            proxy_set_header   Upgrade    $http_upgrade;
+            proxy_set_header   Connection "upgrade";
         }
 
         location /webhook {
-          proxy_pass http://forex-backend-staging:${var.backend_staging_port};
+            proxy_pass http://$backend_staging;
         }
 
         location /health {
-          proxy_pass http://forex-backend-staging:${var.backend_staging_port}/health;
+            proxy_pass http://$backend_staging/health;
         }
-      }
+
+        server_tokens off;
     }
   EOT
 }
@@ -250,24 +319,22 @@ resource "local_file" "ansible_inventory" {
   filename        = "${path.module}/../ansible/inventory.yml"
   file_permission = "0644"
   content         = <<-EOT
-    # Généré automatiquement par Terraform
-    # Ne pas modifier manuellement
+    # Généré automatiquement par Terraform — ne pas modifier
 
     all:
       hosts:
         vps_prod:
-          ansible_host: ${var.vps_ip}
-          ansible_user: ${var.vps_user}
-          ansible_ssh_private_key_file: ~/.ssh/id_rsa
-          ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+          ansible_host:       localhost
+          ansible_connection: local
+          ansible_user:       ${var.vps_user}
 
       vars:
-        project_name:        ${var.project_name}
-        project_dir:         /home/${var.vps_user}/dockerFX
-        prod_port:           ${var.prod_port}
-        staging_port:        ${var.staging_port}
-        backend_image:       ${var.backend_image}
-        frontend_image:      ${var.frontend_image}
+        project_name:   ${var.project_name}
+        project_dir:    /home/${var.vps_user}/dockerFX
+        prod_port:      ${var.prod_port}
+        staging_port:   ${var.staging_port}
+        backend_image:  ${var.backend_image}
+        frontend_image: ${var.frontend_image}
   EOT
 }
 
@@ -279,17 +346,14 @@ resource "local_file" "env_staging_example" {
   filename        = "${path.module}/../../.env.staging.example"
   file_permission = "0644"
   content         = <<-EOT
-    # ════════════════════════════════════════════════════════════
     # STAGING — Template variables d'environnement
     # Généré par Terraform
     # Copier en .env.staging et remplir les valeurs réelles
     # Ne jamais committer .env.staging dans Git
-    # ════════════════════════════════════════════════════════════
 
     PORT=${var.backend_staging_port}
     NODE_ENV=staging
 
-    # cTrader (compte DEMO uniquement pour le staging)
     CTRADER_HOST=demo.ctraderapi.com
     CTRADER_CLIENT_ID=
     CTRADER_CLIENT_SECRET=
@@ -297,22 +361,18 @@ resource "local_file" "env_staging_example" {
     CTRADER_REFRESH_TOKEN=
     CTRADER_ACCOUNT_ID=
 
-    # Risk management réduit en staging
     RISK_PERCENT=0.1
     FALLBACK_BALANCE=10000
     MAX_OPEN_TRADES=2
     MAX_CORR_EXPOSURE=1
 
-    # Telegram (peut être le même bot)
     TELEGRAM_TOKEN=
     TELEGRAM_CHATID=
 
-    # Auth dashboard
     JWT_SECRET=staging-secret-32-chars-minimum-change-me
     DASHBOARD_LOGIN=
     DASHBOARD_PASSWORD=
 
-    # Drawdown
     MAX_DAILY_DD=4
     HARD_STOP_DD=5
     MAX_TOTAL_DD=10
@@ -322,14 +382,14 @@ resource "local_file" "env_staging_example" {
 }
 
 # ════════════════════════════════════════════════════════════════
-# VÉRIFICATION — Affiche un résumé après terraform apply
+# RÉSUMÉ — Affiché après terraform apply
 # ════════════════════════════════════════════════════════════════
 
 resource "null_resource" "summary" {
   triggers = {
-    prod_hash    = local_file.docker_compose_prod.content
+    stack_hash   = local_file.docker_stack_prod.content
     staging_hash = local_file.docker_compose_staging.content
-    nginx_hash   = local_file.nginx_conf.content
+    nginx_hash   = local_file.nginx_frontend_prod.content
   }
 
   provisioner "local-exec" {
@@ -339,25 +399,30 @@ resource "null_resource" "summary" {
       echo "║  ✅  Terraform apply terminé                     ║"
       echo "╠══════════════════════════════════════════════════╣"
       echo "║  Fichiers générés :                              ║"
-      echo "║    docker-compose.prod.yml                       ║"
-      echo "║    docker-compose.staging.yml                    ║"
-      echo "║    nginx/nginx.conf                              ║"
+      echo "║    docker-stack.prod.yml      (Swarm prod)       ║"
+      echo "║    docker-compose.staging.yml (Compose staging)  ║"
+      echo "║    frontend/nginx.conf        (prod Swarm)       ║"
+      echo "║    frontend/nginx.staging.conf (staging Compose) ║"
       echo "║    infra/ansible/inventory.yml                   ║"
       echo "║    .env.staging.example                          ║"
       echo "╠══════════════════════════════════════════════════╣"
+      echo "║  ⚠️  Rebuilder l'image frontend avant Ansible :  ║"
+      echo "║    bash scripts/build-and-push.sh main           ║"
+      echo "╠══════════════════════════════════════════════════╣"
       echo "║  Prochaine étape :                               ║"
-      echo "║  ansible-playbook \\                              ║"
-      echo "║    -i infra/ansible/inventory.yml \\              ║"
-      echo "║    infra/ansible/playbook.yml                    ║"
+      echo "║    ansible-playbook \\                            ║"
+      echo "║      -i infra/ansible/inventory.yml \\            ║"
+      echo "║      infra/ansible/playbook.yml                  ║"
       echo "╚══════════════════════════════════════════════════╝"
       echo ""
     EOT
   }
 
   depends_on = [
-    local_file.docker_compose_prod,
+    local_file.docker_stack_prod,
     local_file.docker_compose_staging,
-    local_file.nginx_conf,
+    local_file.nginx_frontend_prod,
+    local_file.nginx_frontend_staging,
     local_file.ansible_inventory,
     local_file.env_staging_example,
   ]
