@@ -437,7 +437,7 @@ jobs:
     if: needs.build-production.result == 'success'
     environment:
       name: production
-      url: http://${{ secrets.VPS_HOST }}
+      url: http://135.125.196.204
 
     steps:
       - name: 🔑 Setup SSH
