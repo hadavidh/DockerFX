@@ -31,12 +31,14 @@ services:
   frontend:
     build:
       context: ./frontend
+      args:
+        NGINX_CONF: nginx.ci.conf
     ports:
       - "8085:80"
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8085 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10

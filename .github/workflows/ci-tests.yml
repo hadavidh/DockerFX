@@ -76,11 +76,10 @@ jobs:
           CTRADER_ACCOUNT_LIVE: ${{ secrets.CTRADER_ACCOUNT_LIVE }}
         run: |
           docker compose -f docker-compose.ci.yml up -d --build
-      
-# 🔥 AJOUT ICI
+
       - name: Debug backend env
         run: |
-                docker compose -f docker-compose.ci.yml exec -T backend sh -c 'echo "LOGIN=$DASHBOARD_LOGIN"; echo "PASS_LEN=${#DASHBOARD_PASSWORD}"'
+          docker compose -f docker-compose.ci.yml exec -T backend sh -c 'echo "LOGIN=$DASHBOARD_LOGIN"; echo "PASS_LEN=${#DASHBOARD_PASSWORD}"'
 
       - name: Wait backend
         run: |
@@ -92,18 +91,18 @@ jobs:
             echo "Waiting backend ($i/30)..."
             sleep 3
           done
-          echo "Backend not ready"
           docker compose -f docker-compose.ci.yml logs backend
           exit 1
-      - name: Debug login API
+
+      - name: Debug login API backend direct
         env:
-           RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
-           RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
+          RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
+          RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
         run: |
-            echo "=== direct login API ==="
-            curl -i -s -X POST http://127.0.0.1:3003/api/auth/login \
-              -H "Content-Type: application/json" \
-             -d "{\"email\":\"$RF_USERNAME\",\"password\":\"$RF_PASSWORD\"}"
+          echo "=== direct login API ==="
+          curl -i -s -X POST http://127.0.0.1:3003/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$RF_USERNAME\",\"password\":\"$RF_PASSWORD\"}"
 
       - name: Wait frontend
         run: |
@@ -115,9 +114,18 @@ jobs:
             echo "Waiting frontend ($i/30)..."
             sleep 3
           done
-          echo "Frontend not ready"
           docker compose -f docker-compose.ci.yml logs frontend
           exit 1
+
+      - name: Debug login API via frontend proxy
+        env:
+          RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
+          RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
+        run: |
+          echo "=== frontend /api/auth/login ==="
+          curl -i -s -X POST http://127.0.0.1:8085/api/auth/login \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$RF_USERNAME\",\"password\":\"$RF_PASSWORD\"}"
 
       - name: Prepare reports
         run: |
@@ -179,16 +187,9 @@ jobs:
         with:
           name: robot-final-report-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
           path: |
-            reports/final/report.html
-            reports/final/log.html
-            reports/final/output.xml
-            reports/final/xunit.xml
-            reports/ui/output.xml
-            reports/ui/log.html
-            reports/ui/report.html
-            reports/api/output.xml
-            reports/api/log.html
-            reports/api/report.html
+            reports/final/
+            reports/ui/
+            reports/api/
           retention-days: 30
 
       - name: Docker logs backend
