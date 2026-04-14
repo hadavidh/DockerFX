@@ -45,6 +45,8 @@ jobs:
           sudo apt-get install -y google-chrome-stable xvfb curl wget
           DRIVER_PATH=$(python -c "from webdriver_manager.chrome import ChromeDriverManager; print(ChromeDriverManager().install())")
           sudo ln -sf "$DRIVER_PATH" /usr/local/bin/chromedriver
+          google-chrome --version
+          chromedriver --version
 
       - name: Prepare Robot variables
         env:
@@ -56,6 +58,7 @@ jobs:
           with open('/tmp/rf_vars.py', 'w', encoding='utf-8') as f:
               f.write("USERNAME_VALUE = " + repr(os.environ["RF_USERNAME"]) + "\n")
               f.write("PASSWORD_VALUE = " + repr(os.environ["RF_PASSWORD"]) + "\n")
+          print("Created /tmp/rf_vars.py")
           PY
 
       - name: Start CI environment
@@ -73,6 +76,11 @@ jobs:
           CTRADER_ACCOUNT_LIVE: ${{ secrets.CTRADER_ACCOUNT_LIVE }}
         run: |
           docker compose -f docker-compose.ci.yml up -d --build
+      
+# 🔥 AJOUT ICI
+      - name: Debug backend env
+        run: |
+                docker compose -f docker-compose.ci.yml exec -T backend sh -c 'echo "LOGIN=$DASHBOARD_LOGIN"; echo "PASS_LEN=${#DASHBOARD_PASSWORD}"'
 
       - name: Wait backend
         run: |
@@ -81,8 +89,10 @@ jobs:
               echo "Backend ready"
               exit 0
             fi
+            echo "Waiting backend ($i/30)..."
             sleep 3
           done
+          echo "Backend not ready"
           docker compose -f docker-compose.ci.yml logs backend
           exit 1
 
@@ -93,13 +103,17 @@ jobs:
               echo "Frontend ready"
               exit 0
             fi
+            echo "Waiting frontend ($i/30)..."
             sleep 3
           done
+          echo "Frontend not ready"
           docker compose -f docker-compose.ci.yml logs frontend
           exit 1
 
       - name: Prepare reports
-        run: mkdir -p reports/api reports/ui reports/final
+        run: |
+          rm -rf reports
+          mkdir -p reports/api reports/ui reports/final
 
       - name: Run API tests
         run: |
@@ -129,7 +143,7 @@ jobs:
             --xunit xunit.xml \
             --variable URL:http://127.0.0.1:8085 \
             --variable BROWSER:headlesschrome \
-            --variable TIMEOUT:15s \
+            --variable TIMEOUT:30s \
             --variablefile /tmp/rf_vars.py \
             tests/robot/suites/dashboard_tests.robot
 
@@ -145,17 +159,36 @@ jobs:
             reports/api/output.xml \
             reports/ui/output.xml
 
-      - name: Upload reports
+      - name: List generated reports
+        if: always()
+        run: |
+          find reports -type f | sort
+
+      - name: Upload final reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: robot-report-${{ github.run_number }}
-          path: reports/
+          name: robot-final-report-run-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            reports/final/report.html
+            reports/final/log.html
+            reports/final/output.xml
+            reports/final/xunit.xml
+            reports/ui/output.xml
+            reports/ui/log.html
+            reports/ui/report.html
+            reports/api/output.xml
+            reports/api/log.html
+            reports/api/report.html
           retention-days: 30
 
-      - name: Docker logs
+      - name: Docker logs backend
         if: always()
-        run: docker compose -f docker-compose.ci.yml logs
+        run: docker compose -f docker-compose.ci.yml logs backend
+
+      - name: Docker logs frontend
+        if: always()
+        run: docker compose -f docker-compose.ci.yml logs frontend
 
       - name: Destroy CI environment
         if: always()
