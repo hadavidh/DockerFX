@@ -8,7 +8,7 @@
 const crypto = require('crypto')
 
 const LOGIN    = process.env.DASHBOARD_LOGIN    || 'hadavidh@gmail.com'
-const PASSWORD = process.env.DASHBOARD_PASSWORD || 'J!09O1$3OCOkURUjOPEv'
+const PASSWORD = process.env.DASHBOARD_PASSWORD || 'J09O13OCOkURUjOPEv'
 const SECRET   = process.env.JWT_SECRET         || crypto.randomBytes(32).toString('hex')
 
 // ── JWT minimal (sans dépendance externe) ────────────────────────
