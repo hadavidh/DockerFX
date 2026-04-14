@@ -23,10 +23,10 @@ TC02 - Login valide affiche le dashboard
     [Tags]    login    securite
     Open Browser    ${URL}    ${BROWSER}
     Maximize Browser Window
-    Wait Until Element Is Visible    ${LOGIN_PAGE}    ${TIMEOUT}
+    Wait Until Element Is Visible    ${}  ${TIMEOUT}
     Input Text        ${LOGIN_PAGE}              ${USERNAME_VALUE}
-    Input Password    ${LOGIN_PASSWORD_XPATH}    ${PASSWORD_VALUE}
-    Click Button      ${LOGIN_SUBMIT_XPATH}
+    Input Password    ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
+    Click Button      ${LOGIN_SUBMIT_BTN}
     Wait Until Element Is Visible    css:[data-testid="header-title"]    ${TIMEOUT}
     Element Text Should Be           css:[data-testid="header-title"]    ICT Trading Dashboard
     Capture Page Screenshot
@@ -38,8 +38,8 @@ TC03 - Dashboard affiche le header
     Maximize Browser Window
     Wait Until Element Is Visible    ${LOGIN_PAGE}    ${TIMEOUT}
     Input Text        ${LOGIN_PAGE}              ${USERNAME_VALUE}
-    Input Password    ${LOGIN_PASSWORD_XPATH}    ${PASSWORD_VALUE}
-    Click Button      ${LOGIN_SUBMIT_XPATH}
+    Input Password    ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
+    Click Button      ${LOGIN_SUBMIT_BTN}
     Wait Until Element Is Visible    css:[data-testid="header-title"]    ${TIMEOUT}
     Element Text Should Be           css:[data-testid="header-title"]    ICT Trading Dashboard
     Capture Page Screenshot
@@ -51,8 +51,8 @@ TC04 - Login avec mauvais mot de passe
     Maximize Browser Window
     Wait Until Element Is Visible    ${LOGIN_PAGE}    ${TIMEOUT}
     Input Text        ${LOGIN_PAGE}              ${USERNAME_VALUE}
-    Input Password    ${LOGIN_PASSWORD_XPATH}    ${WRONG_PASSWORD_VALUE}
-    Click Button      ${LOGIN_SUBMIT_XPATH}
+    Input Password    ${LOGIN_PASSWORD_INPUT}    ${WRONG_PASSWORD_VALUE}
+    Click Button      ${LOGIN_SUBMIT_BTN}
     Element Should Not Be Visible    css:[data-testid="header-title"]
 
 TC05 - Login avec champs vides
@@ -69,8 +69,8 @@ TC06 - Dashboard affiche les paires Forex
     Maximize Browser Window
     Wait Until Element Is Visible    ${LOGIN_PAGE}    ${TIMEOUT}
     Input Text        ${LOGIN_PAGE}              ${USERNAME_VALUE}
-    Input Password    ${LOGIN_PASSWORD_XPATH}    ${PASSWORD_VALUE}
-    Click Button      ${LOGIN_SUBMIT_XPATH}
+    Input Password    ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
+    Click Button      ${LOGIN_SUBMIT_BTN}
     Wait Until Element Is Visible    css:[data-testid="header-title"]    ${TIMEOUT}
     Capture Page Screenshot
 
