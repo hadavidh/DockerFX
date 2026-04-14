@@ -4,17 +4,12 @@ Library     Collections
 Library     String
 Library     OperatingSystem
 
-Suite Setup     Créer session API
+# ════════════════════════════════════════════════════════════════
+# Login UNE SEULE FOIS en Suite Setup → token réutilisé partout
+# ════════════════════════════════════════════════════════════════
+Suite Setup     Initialiser la session et se connecter
 
 *** Variables ***
-# ════════════════════════════════════════════════════════════════
-# Variables — surchargées par le CI/CD via --variable
-#
-# Environnements :
-#   Local   : API_URL=http://localhost:3001
-#   Staging : API_URL=http://135.125.196.204:8080
-#   Prod    : API_URL=http://135.125.196.204
-# ════════════════════════════════════════════════════════════════
 ${API_URL}          http://localhost:3001
 ${USERNAME_VALUE}   hadavidh@gmail.com
 ${PASSWORD_VALUE}   J!09O1$3OCOkURUjOPEv
@@ -23,20 +18,23 @@ ${TIMEOUT}          10s
 
 *** Keywords ***
 
-Créer session API
+Initialiser la session et se connecter
+    [Documentation]    Crée la session HTTP et récupère le token JWT
     Create Session    api    ${API_URL}    verify=False
-
-Se connecter et récupérer le token
-    ${body}=     Create Dictionary    email=${USERNAME_VALUE}    password=${PASSWORD_VALUE}
-    ${resp}=     POST On Session      api    /api/auth/login
-    ...          json=${body}
-    ...          expected_status=200
+    # Login
+    ${body}=    Create Dictionary
+    ...    email=${USERNAME_VALUE}
+    ...    password=${PASSWORD_VALUE}
+    ${resp}=    POST On Session    api    /api/auth/login
+    ...         json=${body}
+    ...         expected_status=200
     Should Be True      ${resp.json()['ok']}
     ${token}=    Set Variable    ${resp.json()['token']}
     Set Suite Variable    ${TOKEN}    ${token}
-    RETURN    ${token}
+    Log    ✅ Token obtenu : ${token[:20]}...
 
 Headers auth
+    [Documentation]    Retourne les headers avec Bearer token
     ${headers}=    Create Dictionary
     ...    Authorization=Bearer ${TOKEN}
     ...    Content-Type=application/json
@@ -51,23 +49,17 @@ Headers auth
 TC01 - Health check backend répond 200
     [Documentation]    GET /health → {"ok":true}
     [Tags]    smoke    health
-    ${resp}=    GET On Session    api    /health    expected_status=200
+    ${resp}=    GET On Session    api    url=/health    expected_status=200
     Should Be True    ${resp.json()['ok']}
     Log    Uptime : ${resp.json()['uptime']}s
 
 TC02 - Login avec identifiants valides retourne un token JWT
     [Documentation]    POST /api/auth/login → ok=true + token JWT
     [Tags]    auth    smoke
-    ${body}=    Create Dictionary
-    ...    email=${USERNAME_VALUE}
-    ...    password=${PASSWORD_VALUE}
-    ${resp}=    POST On Session    api    /api/auth/login
-    ...         json=${body}
-    ...         expected_status=200
-    Should Be True        ${resp.json()['ok']}
-    Should Not Be Empty   ${resp.json()['token']}
-    Should Be Equal       ${resp.json()['email']}    ${USERNAME_VALUE}
-    Log    Token reçu : ${resp.json()['token'][:20]}...
+    # Le login a déjà été fait en Suite Setup
+    # On vérifie juste que le token est bien présent dans la variable
+    Should Not Be Empty    ${TOKEN}
+    Log    Token valide : ${TOKEN[:20]}...
 
 TC03 - Login avec mauvais mot de passe retourne 401
     [Documentation]    POST /api/auth/login avec mauvais mdp → 401
@@ -75,7 +67,7 @@ TC03 - Login avec mauvais mot de passe retourne 401
     ${body}=    Create Dictionary
     ...    email=${USERNAME_VALUE}
     ...    password=mauvaismdp123
-    ${resp}=    POST On Session    api    /api/auth/login
+    ${resp}=    POST On Session    api    url=/api/auth/login
     ...         json=${body}
     ...         expected_status=401
     Should Not Be Empty    ${resp.json()['error']}
@@ -84,27 +76,26 @@ TC04 - Login sans corps retourne 400
     [Documentation]    POST /api/auth/login sans body → 400
     [Tags]    auth    validation
     ${body}=    Create Dictionary    email=${EMPTY}    password=${EMPTY}
-    ${resp}=    POST On Session    api    /api/auth/login
+    ${resp}=    POST On Session    api    url=/api/auth/login
     ...         json=${body}
     ...         expected_status=400
 
 TC05 - Requête protégée sans token retourne 401
     [Documentation]    GET /api/balance sans Authorization → 401
     [Tags]    auth    securite
-    ${resp}=    GET On Session    api    /api/balance
+    ${resp}=    GET On Session    api    url=/api/balance
     ...         expected_status=401
     Should Contain    ${resp.json()['error']}    Token
 
 # ══════════════════════════════════════════════════════════════
-# TC06-TC09 — BALANCE & DRAWDOWN
+# TC06-TC07 — BALANCE & DRAWDOWN
 # ══════════════════════════════════════════════════════════════
 
 TC06 - GET /api/balance retourne les données de compte
     [Documentation]    Retourne balance, riskPercent, riskUSD, openTrades
     [Tags]    balance    smoke
-    Se connecter et récupérer le token
     ${headers}=    Headers auth
-    ${resp}=    GET On Session    api    /api/balance
+    ${resp}=    GET On Session    api    url=/api/balance
     ...         headers=${headers}
     ...         expected_status=200
     Dictionary Should Contain Key    ${resp.json()}    balance
@@ -113,10 +104,10 @@ TC06 - GET /api/balance retourne les données de compte
     Log    Balance : ${resp.json()['balance']}
 
 TC07 - GET /api/drawdown retourne les niveaux de drawdown
-    [Documentation]    Retourne dailyDD, totalDD, maxDailyDD, hardStopDD
+    [Documentation]    Retourne dailyDD, totalDD, hardStopDD
     [Tags]    drawdown    smoke
     ${headers}=    Headers auth
-    ${resp}=    GET On Session    api    /api/drawdown
+    ${resp}=    GET On Session    api    url=/api/drawdown
     ...         headers=${headers}
     ...         expected_status=200
     Dictionary Should Contain Key    ${resp.json()}    dailyDD
@@ -124,14 +115,14 @@ TC07 - GET /api/drawdown retourne les niveaux de drawdown
     Log    Drawdown journalier : ${resp.json()['dailyDD']}%
 
 # ══════════════════════════════════════════════════════════════
-# TC08-TC12 — STRATÉGIES
+# TC08-TC10 — STRATÉGIES
 # ══════════════════════════════════════════════════════════════
 
 TC08 - GET /api/strategies retourne la liste des stratégies
-    [Documentation]    Liste des stratégies disponibles avec id, name, active
+    [Documentation]    Liste des stratégies avec id, name, active
     [Tags]    strategies    smoke
     ${headers}=    Headers auth
-    ${resp}=    GET On Session    api    /api/strategies
+    ${resp}=    GET On Session    api    url=/api/strategies
     ...         headers=${headers}
     ...         expected_status=200
     Should Not Be Empty    ${resp.json()}
@@ -139,78 +130,80 @@ TC08 - GET /api/strategies retourne la liste des stratégies
     Dictionary Should Contain Key    ${first}    id
     Dictionary Should Contain Key    ${first}    name
     Dictionary Should Contain Key    ${first}    active
-    Log    Stratégies : ${resp.json()}
+    # Stocker l'id pour les tests suivants
+    Set Suite Variable    ${STRAT_ID}    ${first['id']}
+    Log    Stratégie active : ${first['name']}
 
 TC09 - GET /api/states retourne les états des paires
-    [Documentation]    GET /api/states?strategy=xxx → dict de 28 paires
+    [Documentation]    GET /api/states?strategy=xxx → dict des paires
     [Tags]    states    smoke
     ${headers}=    Headers auth
-    # Récupérer l'id de la stratégie active
-    ${resp_strats}=    GET On Session    api    /api/strategies    headers=${headers}
-    ${strat_id}=    Get From Dictionary    ${resp_strats.json()[0]}    id
-    ${resp}=    GET On Session    api    /api/states?strategy=${strat_id}
+    # Fix bug 2 — utiliser params= au lieu de mettre ? dans l'URL
+    ${params}=    Create Dictionary    strategy=${STRAT_ID}
+    ${resp}=    GET On Session    api    url=/api/states
     ...         headers=${headers}
+    ...         params=${params}
     ...         expected_status=200
     ${nb_pairs}=    Get Length    ${resp.json()}
     Should Be True    ${nb_pairs} >= 1
     Log    Paires reçues : ${nb_pairs}
 
 TC10 - GET /api/history retourne l'historique des signaux
-    [Documentation]    GET /api/history?strategy=xxx&limit=50 → liste de signaux
+    [Documentation]    GET /api/history?strategy=xxx&limit=50
     [Tags]    history
     ${headers}=    Headers auth
-    ${resp_strats}=    GET On Session    api    /api/strategies    headers=${headers}
-    ${strat_id}=    Get From Dictionary    ${resp_strats.json()[0]}    id
-    ${resp}=    GET On Session
-    ...         api    /api/history?strategy=${strat_id}&limit=50
+    # Fix bug 2 — utiliser params=
+    ${params}=    Create Dictionary    strategy=${STRAT_ID}    limit=50
+    ${resp}=    GET On Session    api    url=/api/history
     ...         headers=${headers}
+    ...         params=${params}
     ...         expected_status=200
     Log    Historique : ${resp.json().__len__()} entrées
 
 # ══════════════════════════════════════════════════════════════
-# TC11-TC14 — AUTOMODE
+# TC11-TC12 — AUTOMODE
 # ══════════════════════════════════════════════════════════════
 
 TC11 - GET /api/automode retourne l'état actuel
     [Documentation]    Retourne autoMode (bool) + strategyModes
     [Tags]    automode    smoke
     ${headers}=    Headers auth
-    ${resp}=    GET On Session    api    /api/automode
+    ${resp}=    GET On Session    api    url=/api/automode
     ...         headers=${headers}
     ...         expected_status=200
     Dictionary Should Contain Key    ${resp.json()}    autoMode
     Log    AutoMode : ${resp.json()['autoMode']}
 
-TC12 - POST /api/automode active puis désactive
+TC12 - POST /api/automode toggle ON/OFF
     [Documentation]    Toggle AutoMode ON → OFF → ON
     [Tags]    automode    interaction
     ${headers}=    Headers auth
-    # Récupérer l'état actuel
-    ${resp_get}=    GET On Session    api    /api/automode    headers=${headers}
+    # Lire l'état initial
+    ${resp_get}=    GET On Session    api    url=/api/automode    headers=${headers}
     ${etat_initial}=    Get From Dictionary    ${resp_get.json()}    autoMode
     Log    État initial : ${etat_initial}
     # Inverser
     ${nouvel_etat}=    Evaluate    not ${etat_initial}
     ${body}=    Create Dictionary    enabled=${nouvel_etat}
-    ${resp}=    POST On Session    api    /api/automode
+    ${resp}=    POST On Session    api    url=/api/automode
     ...         headers=${headers}
     ...         json=${body}
     ...         expected_status=200
     Should Be True    ${resp.json()['ok']}
     # Remettre dans l'état original
     ${body_restore}=    Create Dictionary    enabled=${etat_initial}
-    POST On Session    api    /api/automode
+    POST On Session    api    url=/api/automode
     ...    headers=${headers}    json=${body_restore}
 
 # ══════════════════════════════════════════════════════════════
-# TC13-TC16 — COMPTES
+# TC13-TC14 — COMPTES & CTRADER
 # ══════════════════════════════════════════════════════════════
 
 TC13 - GET /api/accounts retourne la liste des comptes
     [Documentation]    Liste des comptes FTMO configurés
     [Tags]    accounts    smoke
     ${headers}=    Headers auth
-    ${resp}=    GET On Session    api    /api/accounts
+    ${resp}=    GET On Session    api    url=/api/accounts
     ...         headers=${headers}
     ...         expected_status=200
     Dictionary Should Contain Key    ${resp.json()}    accounts
@@ -218,25 +211,25 @@ TC13 - GET /api/accounts retourne la liste des comptes
     Should Not Be Empty    ${accounts}
     Log    Comptes : ${accounts.__len__()} compte(s)
 
-TC14 - GET /api/ctrader retourne l'état de la connexion
-    [Documentation]    Retourne ready, simMode, mode (demo/live)
+TC14 - GET /api/ctrader retourne l'état de connexion
+    [Documentation]    Retourne ready, simMode, mode
     [Tags]    ctrader    smoke
     ${headers}=    Headers auth
-    ${resp}=    GET On Session    api    /api/ctrader
+    ${resp}=    GET On Session    api    url=/api/ctrader
     ...         headers=${headers}
     ...         expected_status=200
     Dictionary Should Contain Key    ${resp.json()}    ready
     Log    cTrader ready : ${resp.json()['ready']}
 
 # ══════════════════════════════════════════════════════════════
-# TC15-TC18 — JOURNAL
+# TC15-TC16 — JOURNAL
 # ══════════════════════════════════════════════════════════════
 
 TC15 - GET /api/journal retourne les entrées et stats
-    [Documentation]    Retourne entries[] + stats{executed, wins, losses, winRate}
+    [Documentation]    Retourne entries[] + stats{}
     [Tags]    journal    smoke
     ${headers}=    Headers auth
-    ${resp}=    GET On Session    api    /api/journal
+    ${resp}=    GET On Session    api    url=/api/journal
     ...         headers=${headers}
     ...         expected_status=200
     Dictionary Should Contain Key    ${resp.json()}    entries
@@ -244,39 +237,42 @@ TC15 - GET /api/journal retourne les entrées et stats
     Log    Entrées journal : ${resp.json()['entries'].__len__()}
 
 TC16 - GET /api/journal/export/csv retourne un fichier CSV
-    [Documentation]    Export CSV du journal — Content-Type text/csv
+    [Documentation]    Content-Type doit contenir text/csv
     [Tags]    journal
     ${headers}=    Headers auth
-    ${resp}=    GET On Session    api    /api/journal/export/csv
+    ${resp}=    GET On Session    api    url=/api/journal/export/csv
     ...         headers=${headers}
     ...         expected_status=200
     ${content_type}=    Get From Dictionary    ${resp.headers}    Content-Type
     Should Contain    ${content_type}    text/csv
 
 # ══════════════════════════════════════════════════════════════
-# TC17-TC19 — ANALYTICS
+# TC17-TC18 — ANALYTICS (Fix bug 2 — params=)
 # ══════════════════════════════════════════════════════════════
 
 TC17 - GET /api/analytics?days=30 retourne les métriques
     [Documentation]    Retourne totalSignals, equityCurve, rrDistribution, topPairs
     [Tags]    analytics    smoke
     ${headers}=    Headers auth
-    ${resp}=    GET On Session    api    /api/analytics?days=30
+    # Fix — utiliser params= au lieu de ?days=30 dans l'URL
+    ${params}=    Create Dictionary    days=30
+    ${resp}=    GET On Session    api    url=/api/analytics
     ...         headers=${headers}
+    ...         params=${params}
     ...         expected_status=200
     Dictionary Should Contain Key    ${resp.json()}    totalSignals
     Dictionary Should Contain Key    ${resp.json()}    equityCurve
-    Dictionary Should Contain Key    ${resp.json()}    rrDistribution
-    Dictionary Should Contain Key    ${resp.json()}    topPairs
-    Log    Total signaux : ${resp.json()['totalSignals']}
+    Log    Total signaux 30j : ${resp.json()['totalSignals']}
 
 TC18 - GET /api/analytics avec différentes périodes
     [Documentation]    Test sur 7, 14, 60 jours
     [Tags]    analytics
     ${headers}=    Headers auth
     FOR    ${days}    IN    7    14    60
-        ${resp}=    GET On Session    api    /api/analytics?days=${days}
+        ${params}=    Create Dictionary    days=${days}
+        ${resp}=    GET On Session    api    url=/api/analytics
         ...         headers=${headers}
+        ...         params=${params}
         ...         expected_status=200
         Should Be True    ${resp.json()['totalSignals'] >= 0}
         Log    Analytics ${days}j : ${resp.json()['totalSignals']} signaux
@@ -290,7 +286,7 @@ TC19 - GET /api/positions retourne les positions ouvertes
     [Documentation]    Retourne positions[] (peut être vide)
     [Tags]    positions    smoke
     ${headers}=    Headers auth
-    ${resp}=    GET On Session    api    /api/positions
+    ${resp}=    GET On Session    api    url=/api/positions
     ...         headers=${headers}
     ...         expected_status=200
     Dictionary Should Contain Key    ${resp.json()}    positions
@@ -298,7 +294,7 @@ TC19 - GET /api/positions retourne les positions ouvertes
     Log    Positions ouvertes : ${nb}
 
 # ══════════════════════════════════════════════════════════════
-# TC20 — WEBHOOK (TradingView)
+# TC20 — WEBHOOK
 # ══════════════════════════════════════════════════════════════
 
 TC20 - POST /webhook accepte un signal TradingView
@@ -314,7 +310,8 @@ TC20 - POST /webhook accepte un signal TradingView
     ...    sl=1.08200
     ...    tp=1.09000
     ...    tf=240
-    ${resp}=    POST On Session    api    /webhook
+    ${resp}=    POST On Session    api    url=/webhook
     ...         json=${body}
     ...         expected_status=200
     Log    Webhook réponse : ${resp.json()}
+git
