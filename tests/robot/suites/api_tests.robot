@@ -204,6 +204,7 @@ TC12 - POST /api/automode toggle ON/OFF
 TC13 - GET /api/accounts retourne la liste des comptes
     [Documentation]    Liste des comptes FTMO configurés
     [Tags]    accounts    smoke
+     Log    État initial : test ecarté a corriger
     
   #  ${headers}=    Headers auth
   #  ${resp}=    GET On Session    api    url=/api/accounts

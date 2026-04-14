@@ -1,6 +1,6 @@
 *** Settings ***
 Library    SeleniumLibrary
-Resource   ../resources/locators.resource
+Resource   locators.resource
 Test Teardown    Close Browser
 
 *** Variables ***
