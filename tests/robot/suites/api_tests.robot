@@ -10,9 +10,9 @@ Library     OperatingSystem
 Suite Setup     Initialiser la session et se connecter
 
 *** Variables ***
-${API_URL}          http://localhost:3001
-${USERNAME_VALUE}   hadavidh@gmail.com
-${PASSWORD_VALUE}   J09O13OCOkURUjOPEv
+${API_URL}          http://localhost:3003
+${USERNAME_VALUE}   change me 
+${PASSWORD_VALUE}   change me 
 ${TOKEN}            ${EMPTY}
 ${TIMEOUT}          10s
 

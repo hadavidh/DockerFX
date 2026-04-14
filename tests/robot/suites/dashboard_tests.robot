@@ -4,9 +4,9 @@ Resource   locators.resource
 Test Teardown    Close Browser
 
 *** Variables ***
-${BROWSER}                 headlesschrome
-${URL}                     http://localhost:5173
-${USERNAME_VALUE}          demo@example.com
+${BROWSER}                 chrome
+${URL}                     http://localhost:8085
+${USERNAME_VALUE}          change-me
 ${PASSWORD_VALUE}          change-me
 ${WRONG_PASSWORD_VALUE}    blablabla
 ${TIMEOUT}                 15s
