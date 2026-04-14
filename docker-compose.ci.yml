@@ -32,7 +32,7 @@ services:
     build:
       context: ./frontend
     ports:
-      - "8085:8085"
+      - "8085:80"
     depends_on:
       - backend
     healthcheck:
