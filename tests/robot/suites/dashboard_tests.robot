@@ -26,8 +26,8 @@ TC02 - Page de login accessible bon login et mot de passe
     [Tags]    login    securite
     Open Browser    ${URL}    ${BROWSER}
     Maximize Browser Window
-    Wait Until Element Is Visible    ${LOGIN_USERNAME_XPATH}   10s
-    Input Text         ${LOGIN_USERNAME_XPATH}    ${USERNAME_VALUE}
+    Wait Until Element Is Visible    ${LOGIN_PAGE}    10s
+    Input Text         ${LOGIN_PAGE}     ${USERNAME_VALUE}
     Input Password     ${LOGIN_PASSWORD_XPATH}     ${PASSWORD_VALUE}
     Click Button        ${LOGIN_SUBMIT_XPATH}  
     Wait Until Page Does Not Contain Element    ${LOGIN_SUBMIT_XPATH}      ${TIMEOUT}
@@ -41,8 +41,8 @@ TC03 - DockerFX dashboard toute les pairs forex s'affichent correctement
 
     Open Browser    ${URL}    ${BROWSER}
     Maximize Browser Window
-    Wait Until Element Is Visible    ${LOGIN_USERNAME_XPATH}    ${TIMEOUT}
-    Input Text         ${LOGIN_USERNAME_XPATH}    ${USERNAME_VALUE}
+    Wait Until Element Is Visible    ${LOGIN_PAGE}    ${TIMEOUT}
+    Input Text        ${LOGIN_PAGE}     ${USERNAME_VALUE}
     Input Password     ${LOGIN_PASSWORD_XPATH}     ${PASSWORD_VALUE}
     Click Button        ${LOGIN_SUBMIT_XPATH}  
     Wait Until Page Does Not Contain Element    ${LOGIN_SUBMIT_XPATH}       ${TIMEOUT}
@@ -57,8 +57,8 @@ TC04 - Login avec mauvais mot de passe
 
     Open Browser    ${URL}    ${BROWSER}
     Maximize Browser Window
-    Wait Until Element Is Visible    ${LOGIN_USERNAME_XPATH}    ${TIMEOUT}
-    Input Text         ${LOGIN_USERNAME_XPATH}    ${USERNAME_VALUE}
+    Wait Until Element Is Visible    ${LOGIN_PAGE}     ${TIMEOUT}
+    Input Text         ${LOGIN_PAGE}    ${USERNAME_VALUE}
     Input Password     ${LOGIN_PASSWORD_XPATH}     ${WRONG_PASSWORD_VALUE}
     Click Button        ${LOGIN_SUBMIT_XPATH}  
     Element Should Not Be Visible  css:[data-testid="header-title"]   
