@@ -198,13 +198,13 @@ TC12 - POST /api/automode toggle ON/OFF
     ...    headers=${headers}    json=${body_restore}
 
 # ══════════════════════════════════════════════════════════════
-# TC13-TC14 — COMPTES & CTRADER
+# TC13-TC14 — COMPTES &  CTRADER
 # ══════════════════════════════════════════════════════════════
 
 TC13 - GET /api/accounts retourne la liste des comptes
     [Documentation]    Liste des comptes FTMO configurés
     [Tags]    accounts    smoke
-    Log    État initial: test à corriger mais OK pour le pipeline valide
+    
   #  ${headers}=    Headers auth
   #  ${resp}=    GET On Session    api    url=/api/accounts
   #  ...         headers=${headers}

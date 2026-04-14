@@ -4,11 +4,11 @@
 # locators.resource — Sélecteurs CSS via data-testid
 # SeleniumLibrary — préfixe css: requis
 # Convention : css:[data-testid="xxx"]
-# IMPORTANT : 4 espaces entre nom de variable et valeur
+# IMPORTANT : 4 espaces entrde nom de variable et valeur
 # ════════════════════════════════════════════════════════════════
 
 # ── LOGIN ────────────────────────────────────────────────────────
-${LOGIN_PAGE}              css:[data-testid="login-page"]
+${LOGIN_PAGE}               css:[data-testid="login-page"]
 ${LOGIN_CARD}              css:[data-testid="login-card"]
 ${LOGIN_FORM}              css:[data-testid="login-form"]
 ${LOGIN_EMAIL_INPUT}       css:[data-testid="login-email-input"]
