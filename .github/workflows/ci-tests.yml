@@ -1,0 +1,162 @@
+name: CI - Robot Tests
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+      - 'feature/**'
+      - 'hotfix/**'
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  robot-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install Robot dependencies
+        run: |
+          pip install \
+            robotframework==7.0 \
+            robotframework-seleniumlibrary==6.3.0 \
+            robotframework-requests==0.9.7 \
+            robotframework-jsonlibrary==0.5.0 \
+            robotframework-pabot==2.18.0 \
+            webdriver-manager
+
+      - name: Install Chrome + Xvfb
+        run: |
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update -qq
+          sudo apt-get install -y google-chrome-stable xvfb curl wget
+          DRIVER_PATH=$(python -c "from webdriver_manager.chrome import ChromeDriverManager; print(ChromeDriverManager().install())")
+          sudo ln -sf "$DRIVER_PATH" /usr/local/bin/chromedriver
+
+      - name: Prepare Robot variables
+        env:
+          RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
+          RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
+        run: |
+          python - <<'PY'
+          import os
+          with open('/tmp/rf_vars.py', 'w', encoding='utf-8') as f:
+              f.write("USERNAME_VALUE = " + repr(os.environ["RF_USERNAME"]) + "\n")
+              f.write("PASSWORD_VALUE = " + repr(os.environ["RF_PASSWORD"]) + "\n")
+          PY
+
+      - name: Start CI environment
+        env:
+          DASHBOARD_LOGIN: ${{ secrets.TEST_DASHBOARD_LOGIN }}
+          DASHBOARD_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHATID: ${{ secrets.TELEGRAM_CHATID }}
+          CTRADER_CLIENT_ID: ${{ secrets.CTRADER_CLIENT_ID }}
+          CTRADER_CLIENT_SECRET: ${{ secrets.CTRADER_CLIENT_SECRET }}
+          CTRADER_ACCESS_TOKEN: ${{ secrets.CTRADER_ACCESS_TOKEN }}
+          CTRADER_ACCOUNT_ID: ${{ secrets.CTRADER_ACCOUNT_ID }}
+          CTRADER_HOST: ${{ secrets.CTRADER_HOST }}
+          CTRADER_ACCOUNT_DEMO: ${{ secrets.CTRADER_ACCOUNT_DEMO }}
+          CTRADER_ACCOUNT_LIVE: ${{ secrets.CTRADER_ACCOUNT_LIVE }}
+        run: |
+          docker compose -f docker-compose.ci.yml up -d --build
+
+      - name: Wait backend
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:3003/health > /dev/null; then
+              echo "Backend ready"
+              exit 0
+            fi
+            sleep 3
+          done
+          docker compose -f docker-compose.ci.yml logs backend
+          exit 1
+
+      - name: Wait frontend
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8085 > /dev/null; then
+              echo "Frontend ready"
+              exit 0
+            fi
+            sleep 3
+          done
+          docker compose -f docker-compose.ci.yml logs frontend
+          exit 1
+
+      - name: Prepare reports
+        run: mkdir -p reports/api reports/ui reports/final
+
+      - name: Run API tests
+        run: |
+          python -m robot \
+            --nostatusrc \
+            --outputdir reports/api \
+            --output output.xml \
+            --log log.html \
+            --report report.html \
+            --xunit xunit.xml \
+            --variable API_URL:http://127.0.0.1:3003 \
+            --variablefile /tmp/rf_vars.py \
+            tests/robot/suites/api_tests.robot
+
+      - name: Run UI tests
+        env:
+          DISPLAY: :99
+        run: |
+          Xvfb :99 -screen 0 1920x1080x24 >/dev/null 2>&1 &
+          sleep 2
+          python -m robot \
+            --nostatusrc \
+            --outputdir reports/ui \
+            --output output.xml \
+            --log log.html \
+            --report report.html \
+            --xunit xunit.xml \
+            --variable URL:http://127.0.0.1:8085 \
+            --variable BROWSER:headlesschrome \
+            --variable TIMEOUT:15s \
+            --variablefile /tmp/rf_vars.py \
+            tests/robot/suites/dashboard_tests.robot
+
+      - name: Merge reports and fail on any failed test
+        run: |
+          python -m robot.rebot \
+            --outputdir reports/final \
+            --output output.xml \
+            --log log.html \
+            --report report.html \
+            --xunit xunit.xml \
+            --name "Robot Full Suite" \
+            reports/api/output.xml \
+            reports/ui/output.xml
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: robot-report-${{ github.run_number }}
+          path: reports/
+          retention-days: 30
+
+      - name: Docker logs
+        if: always()
+        run: docker compose -f docker-compose.ci.yml logs
+
+      - name: Destroy CI environment
+        if: always()
+        run: docker compose -f docker-compose.ci.yml down -v --remove-orphans
