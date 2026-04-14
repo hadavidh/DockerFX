@@ -64,7 +64,7 @@ jobs:
           npm run lint || true
 
 # ══════════════════════════════════════════════════════════════
-# JOB 2 — TESTS ROBOT FRAMEWORK (~5 min)
+# JOB 2 — TESTS ROBOT FRAMEWORK (~8 min)
 # ══════════════════════════════════════════════════════════════
 
   robot-tests:
@@ -82,7 +82,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ── Chrome + ChromeDriver ─────────────────────────────────
-      - name: 🌐 Installer Google Chrome
+      - name: 🌐 Installer Google Chrome + Xvfb
         run: |
           wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | \
@@ -151,7 +151,7 @@ jobs:
           done
           curl -sf http://localhost:3001/health || exit 1
 
-      - name: 🏗️ Build + démarrer frontend (serve)
+      - name: 🏗️ Build + démarrer frontend
         run: |
           cd frontend && npm ci --silent && npm run build
           npm install -g serve
@@ -159,19 +159,35 @@ jobs:
           sleep 5
           curl -sf http://localhost:5173 && echo "✅ Frontend OK" || echo "⚠️ Frontend starting"
 
+      # ── Écrire les variables RF dans un fichier Python ────────
+      # → évite l'interpolation shell des caractères spéciaux ($, !, etc.)
+      - name: 📝 Préparer les variables Robot Framework
+        env:
+          RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
+          RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
+        run: |
+          python3 -c "
+          import os
+          with open('/tmp/rf_vars.py', 'w') as f:
+              f.write('USERNAME_VALUE = ' + repr(os.environ['RF_USERNAME']) + '\n')
+              f.write('PASSWORD_VALUE = ' + repr(os.environ['RF_PASSWORD']) + '\n')
+          print('✅ Variables RF écrites dans /tmp/rf_vars.py')
+          print('USERNAME_VALUE =', repr(os.environ['RF_USERNAME']))
+          print('PASSWORD_VALUE length =', len(os.environ['RF_PASSWORD']))
+          "
+          mkdir -p reports/api reports/dashboard reports/screenshots
+
       # ── Tests API (RequestsLibrary — sans navigateur) ─────────
       - name: 🔌 Lancer les tests API
         run: |
-          mkdir -p reports/screenshots
           python -m robot \
             --outputdir  reports/api \
             --output     output.xml \
             --log        log.html \
             --report     report.html \
             --xunit      xunit.xml \
+            --variablefile /tmp/rf_vars.py \
             --variable   API_URL:http://localhost:3001 \
-            --variable   USERNAME_VALUE:${{ secrets.TEST_DASHBOARD_LOGIN }} \
-            --variable   PASSWORD_VALUE:${{ secrets.TEST_DASHBOARD_PASSWORD }} \
             --loglevel   INFO \
             tests/robot/suites/api_tests.robot
         continue-on-error: true
@@ -181,7 +197,8 @@ jobs:
         env:
           DISPLAY: :99
         run: |
-          Xvfb :99 -screen 0 1920x1080x24 &
+          # Xvfb sans les warnings xkbcomp
+          Xvfb :99 -screen 0 1920x1080x24 2>/dev/null &
           sleep 2
           python -m robot \
             --outputdir  reports/dashboard \
@@ -189,10 +206,9 @@ jobs:
             --log        log.html \
             --report     report.html \
             --xunit      xunit.xml \
+            --variablefile /tmp/rf_vars.py \
             --variable   URL:http://localhost:5173 \
             --variable   BROWSER:headlesschrome \
-            --variable   USERNAME_VALUE:${{ secrets.TEST_DASHBOARD_LOGIN }} \
-            --variable   PASSWORD_VALUE:${{ secrets.TEST_DASHBOARD_PASSWORD }} \
             --variable   TIMEOUT:15s \
             --loglevel   INFO \
             tests/robot/suites/dashboard_tests.robot
@@ -234,21 +250,36 @@ jobs:
           reporter:      'java-junit'
           fail-on-error: false
 
+      # ── Vérification finale — BLOQUE le pipeline si échecs ────
+      # Lit les 2 fichiers output séparément pour éviter qu'un
+      # fichier manquant ne masque les échecs de l'autre
       - name: ✅ Vérifier résultats (bloque si échecs)
         run: |
-          python -c "
-          import xml.etree.ElementTree as ET, sys
-          tree = ET.parse('reports/output.xml')
-          root = tree.getroot()
-          suite  = root.find('.//suite')
-          failed = int(suite.get('failed', 0)) if suite else 0
-          passed = int(suite.get('passed', 0)) if suite else 0
-          total  = passed + failed
-          print(f'Tests : {passed}/{total} passés | {failed} échoués')
-          if failed > 0:
-            print('❌ Build bloqué — corriger les tests avant de merger')
-            sys.exit(1)
-          print('✅ Tous les tests passés')
+          python3 -c "
+          import xml.etree.ElementTree as ET, sys, os
+
+          failed_total = 0
+          passed_total = 0
+
+          for f in ['reports/api/output.xml', 'reports/dashboard/output.xml']:
+              if not os.path.exists(f):
+                  print(f'⚠️  {f} introuvable — ignoré')
+                  continue
+              tree  = ET.parse(f)
+              suite = tree.getroot().find('.//suite')
+              failed = int(suite.get('failed', 0)) if suite else 0
+              passed = int(suite.get('passed', 0)) if suite else 0
+              label  = os.path.basename(os.path.dirname(f))
+              print(f'{label}: {passed} passés | {failed} échoués')
+              failed_total += failed
+              passed_total += passed
+
+          print(f'')
+          print(f'Total : {passed_total} passés | {failed_total} échoués')
+          if failed_total > 0:
+              print('❌ Build bloqué — corriger les tests avant de merger')
+              sys.exit(1)
+          print('✅ Tous les tests passés — build autorisé')
           "
 
       - name: 📱 Telegram — Tests KO
@@ -283,14 +314,14 @@ jobs:
           image-ref:    'scan-backend:tmp'
           format:       'table'
           severity:     'CRITICAL,HIGH'
-          exit-code:    '0'  # Ne bloque pas le build (warning seulement)
+          exit-code:    '0'
 
       - name: Supprimer image temporaire
         run: docker rmi scan-backend:tmp || true
 
 # ══════════════════════════════════════════════════════════════
 # JOB 4 — BUILD + PUSH DOCKER STAGING (develop uniquement)
-# Déclenché seulement si tests OK + branche develop
+# Déclenché seulement si robot-tests == success
 # ══════════════════════════════════════════════════════════════
 
   build-staging:
@@ -317,8 +348,8 @@ jobs:
         id: meta
         run: |
           SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          echo "sha_short=$SHA"                                  >> $GITHUB_OUTPUT
-          echo "tags_backend=${{ env.IMAGE_BACKEND }}:develop,${{ env.IMAGE_BACKEND }}:develop-$SHA"   >> $GITHUB_OUTPUT
+          echo "sha_short=$SHA"                                                                          >> $GITHUB_OUTPUT
+          echo "tags_backend=${{ env.IMAGE_BACKEND }}:develop,${{ env.IMAGE_BACKEND }}:develop-$SHA"    >> $GITHUB_OUTPUT
           echo "tags_frontend=${{ env.IMAGE_FRONTEND }}:develop,${{ env.IMAGE_FRONTEND }}:develop-$SHA" >> $GITHUB_OUTPUT
 
       - uses: docker/setup-buildx-action@v3
@@ -382,7 +413,7 @@ jobs:
         run: |
           sleep 15
           curl -sf http://${{ secrets.VPS_HOST }}:8080/health || \
-            echo "⚠️ Health check staging non disponible (normal si backend long à démarrer)"
+            echo "⚠️ Health check staging non disponible"
 
       - name: 📱 Telegram — Staging déployé
         if: success()
@@ -394,6 +425,7 @@ jobs:
 
 # ══════════════════════════════════════════════════════════════
 # JOB 6 — BUILD + PUSH DOCKER PRODUCTION (main uniquement)
+# Déclenché seulement si robot-tests == success
 # ══════════════════════════════════════════════════════════════
 
   build-production:
@@ -411,24 +443,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Nécessaire pour les tags Git
+          fetch-depth: 0
 
       - name: 🏷️ Calculer la prochaine version
         id: version
         run: |
-          # Récupérer le dernier tag (ou v0.0.0 si aucun)
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "Dernier tag : $LAST_TAG"
-
-          # Extraire major.minor.patch
           VERSION=${LAST_TAG#v}
           MAJOR=$(echo $VERSION | cut -d. -f1)
           MINOR=$(echo $VERSION | cut -d. -f2)
           PATCH=$(echo $VERSION | cut -d. -f3)
-
-          # Analyser les commits depuis le dernier tag
           COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s" -10)
-
           if echo "$COMMITS" | grep -qE "^feat!:|^BREAKING CHANGE"; then
             MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
             BUMP="majeure"
@@ -439,7 +465,6 @@ jobs:
             PATCH=$((PATCH + 1))
             BUMP="patch"
           fi
-
           NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
           echo "Nouvelle version : $NEW_VERSION (bump $BUMP)"
           echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
@@ -449,8 +474,7 @@ jobs:
         run: |
           SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           VERSION="${{ steps.version.outputs.version }}"
-          DATE=$(date +%Y%m%d)
-          echo "sha_short=$SHA"    >> $GITHUB_OUTPUT
+          echo "sha_short=$SHA" >> $GITHUB_OUTPUT
           echo "tags_backend=${{ env.IMAGE_BACKEND }}:latest,${{ env.IMAGE_BACKEND }}:${VERSION},${{ env.IMAGE_BACKEND }}:${SHA}"    >> $GITHUB_OUTPUT
           echo "tags_frontend=${{ env.IMAGE_FRONTEND }}:latest,${{ env.IMAGE_FRONTEND }}:${VERSION},${{ env.IMAGE_FRONTEND }}:${SHA}" >> $GITHUB_OUTPUT
 
@@ -556,7 +580,7 @@ jobs:
       needs.build-production.result == 'success' &&
       needs.deploy-production.result == 'success'
     permissions:
-      contents: write  # Nécessaire pour créer des tags et releases
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -569,37 +593,26 @@ jobs:
           VERSION="${{ needs.build-production.outputs.version }}"
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           DATE=$(date '+%Y-%m-%d')
-
-          # En-tête
           CHANGELOG="## ${VERSION} — ${DATE}\n\n"
-
-          # Récupérer les commits depuis le dernier tag
           if [ -n "$LAST_TAG" ]; then
             COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%an)" 2>/dev/null)
           else
             COMMITS=$(git log --pretty=format:"- %s (%an)" -20)
           fi
-
-          # Catégoriser
-          FEATURES=$(echo "$COMMITS"  | grep "^- feat:"  | sed 's/^- feat: /- ✨ /' || true)
-          FIXES=$(echo "$COMMITS"     | grep "^- fix:"   | sed 's/^- fix: /- 🐛 /'  || true)
-          CI=$(echo "$COMMITS"        | grep "^- ci:"    | sed 's/^- ci: /- ⚙️ /'   || true)
-          DOCS=$(echo "$COMMITS"      | grep "^- docs:"  | sed 's/^- docs: /- 📚 /' || true)
-          OTHERS=$(echo "$COMMITS"    | grep -vE "^- (feat|fix|ci|docs|test|chore):" || true)
-
+          FEATURES=$(echo "$COMMITS" | grep "^- feat:"  | sed 's/^- feat: /- ✨ /' || true)
+          FIXES=$(echo "$COMMITS"    | grep "^- fix:"   | sed 's/^- fix: /- 🐛 /'  || true)
+          CI=$(echo "$COMMITS"       | grep "^- ci:"    | sed 's/^- ci: /- ⚙️ /'   || true)
+          DOCS=$(echo "$COMMITS"     | grep "^- docs:"  | sed 's/^- docs: /- 📚 /' || true)
+          OTHERS=$(echo "$COMMITS"   | grep -vE "^- (feat|fix|ci|docs|test|chore):" || true)
           [ -n "$FEATURES" ] && CHANGELOG="${CHANGELOG}### ✨ Nouvelles fonctionnalités\n${FEATURES}\n\n"
           [ -n "$FIXES"    ] && CHANGELOG="${CHANGELOG}### 🐛 Corrections\n${FIXES}\n\n"
           [ -n "$CI"       ] && CHANGELOG="${CHANGELOG}### ⚙️ CI/CD\n${CI}\n\n"
           [ -n "$DOCS"     ] && CHANGELOG="${CHANGELOG}### 📚 Documentation\n${DOCS}\n\n"
           [ -n "$OTHERS"   ] && CHANGELOG="${CHANGELOG}### 🔧 Autres\n${OTHERS}\n\n"
-
-          # Images Docker
           SHA="${{ needs.build-production.outputs.sha_short }}"
           CHANGELOG="${CHANGELOG}### 🐳 Images Docker\n"
           CHANGELOG="${CHANGELOG}- \`dave67000/ict-trading-backend:${VERSION}\`\n"
           CHANGELOG="${CHANGELOG}- \`dave67000/ict-trading-frontend:${VERSION}\`\n"
-
-          # Écrire dans un fichier (évite les problèmes de quotes)
           printf "$CHANGELOG" > /tmp/release_notes.md
           cat /tmp/release_notes.md
 
@@ -623,7 +636,6 @@ jobs:
       - name: 📝 Mettre à jour CHANGELOG.md dans le repo
         run: |
           VERSION="${{ needs.build-production.outputs.version }}"
-          # Prépendre la nouvelle release au CHANGELOG.md existant
           if [ -f "CHANGELOG.md" ]; then
             cat /tmp/release_notes.md CHANGELOG.md > /tmp/new_changelog.md
           else
@@ -632,7 +644,6 @@ jobs:
             cat /tmp/release_notes.md >> /tmp/new_changelog.md
           fi
           cp /tmp/new_changelog.md CHANGELOG.md
-
           git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
           git add CHANGELOG.md
