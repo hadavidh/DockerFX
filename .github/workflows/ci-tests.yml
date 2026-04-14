@@ -95,6 +95,15 @@ jobs:
           echo "Backend not ready"
           docker compose -f docker-compose.ci.yml logs backend
           exit 1
+      - name: Debug login API
+        env:
+           RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
+           RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
+        run: |
+            echo "=== direct login API ==="
+            curl -i -s -X POST http://127.0.0.1:3003/api/auth/login \
+              -H "Content-Type: application/json" \
+             -d "{\"email\":\"$RF_USERNAME\",\"password\":\"$RF_PASSWORD\"}"
 
       - name: Wait frontend
         run: |
