@@ -311,7 +311,7 @@ TC22 - Formulaire d'ajout de compte s'ouvre et se ferme
 # ══════════════════════════════════════════════════════════════
 
 TC23 - Affichage mobile 375px (iPhone SE)
-    [Documentation]    Interface lisible sur mobile
+    [Documentation]    Interface lisible sur le mobile
     [Tags]    responsive    mobile
     Open Browser    ${URL}    ${BROWSER}
     Set Window Size    375    812
