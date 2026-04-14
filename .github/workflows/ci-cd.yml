@@ -158,35 +158,50 @@ jobs:
       # bien sur backend:3001 et non sur un 404.
       - name: 🏗️ Build + démarrer frontend avec proxy API
         run: |
+          # Build du frontend React
           cd frontend && npm ci --silent && npm run build
+          FRONTEND_DIST="$(pwd)/dist"
+          cd ..
 
-          # Installer les dépendances du proxy
-          npm install --save-dev express http-proxy-middleware
+          # Créer un dossier proxy ISOLÉ avec ses propres node_modules
+          # → évite le conflit avec path-to-regexp v8 de Vite/React
+          mkdir -p /tmp/proxy-server
+          cd /tmp/proxy-server
+          npm init -y --silent
 
-          # Stocker le chemin absolu dynamiquement
-          FRONTEND_DIR=$(pwd)
+          # Installer express@4 + proxy dans l'environnement isolé
+          npm install --silent express@4 http-proxy-middleware
 
-          # Démarrer le mini-serveur proxy en background
-          node -e "
-          const express = require('${FRONTEND_DIR}/node_modules/express');
-          const { createProxyMiddleware } = require('${FRONTEND_DIR}/node_modules/http-proxy-middleware');
-          const path = require('path');
-          const app = express();
-          const DIST = '${FRONTEND_DIR}/dist';
+          # Écrire le serveur proxy
+          cat > /tmp/proxy-server/server.js << JSEOF
+const express = require('/tmp/proxy-server/node_modules/express');
+const { createProxyMiddleware } = require('/tmp/proxy-server/node_modules/http-proxy-middleware');
+const path = require('path');
 
-          // Proxy /api, /webhook, /ws → backend:3001
-          app.use('/api',     createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
-          app.use('/webhook', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }));
-          app.use('/ws',      createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, ws: true }));
+const app  = express();
+const DIST = process.env.DIST_PATH;
 
-          // Fichiers React statiques + SPA fallback
-          app.use(express.static(DIST));
-          app.get('*', (req, res) => res.sendFile(path.join(DIST, 'index.html')));
+// Proxy /api, /webhook, /ws → backend:3001
+app.use('/api',     createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
+app.use('/webhook', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
+app.use('/ws',      createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, ws: true, logLevel: 'silent' }));
 
-          app.listen(5173, () => console.log('✅ Frontend proxy prêt sur http://localhost:5173'));
-          " &
+// Fichiers React statiques + SPA fallback
+app.use(express.static(DIST));
+app.get('/', function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
+app.get('/login', function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
+app.use(function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
 
-          # Attendre que le serveur soit réellement prêt (max 30s)
+app.listen(5173, function() {
+  console.log('✅ Frontend proxy sur http://localhost:5173');
+  console.log('   DIST =', DIST);
+});
+JSEOF
+
+          # Lancer le serveur proxy
+          DIST_PATH="$FRONTEND_DIST" node /tmp/proxy-server/server.js &
+
+          # Attendre que le serveur soit prêt (max 30s)
           echo "⏳ Attente démarrage frontend..."
           for i in $(seq 1 15); do
             if curl -sf http://localhost:5173 > /dev/null 2>&1; then
@@ -197,9 +212,9 @@ jobs:
             sleep 2
           done
 
-          # Vérification finale — exit 1 si toujours KO
+          # Vérification finale
           curl -sf http://localhost:5173 || { echo "❌ Frontend ne répond pas sur :5173"; exit 1; }
-          curl -sf http://localhost:5173/health && echo "✅ Proxy /health OK" || echo "⚠️ Proxy /health non disponible"
+          curl -sf http://localhost:5173/health && echo "✅ Proxy /health OK" || echo "⚠️ /health non dispo"
 
       # ── Variables RF via fichier Python ───────────────────────
       # Évite l'interpolation shell des caractères spéciaux ($, !)
