@@ -15,7 +15,7 @@ Test Teardown    Close Browser
 ${BROWSER}               headlesschrome
 ${URL}                   http://localhost:5173
 ${USERNAME_VALUE}        hadavidh@gmail.com
-${PASSWORD_VALUE}        J!09O1$3OCOkURUjOPEv
+${PASSWORD_VALUE}        J09O13OCOkURUjOPEv
 ${WRONG_PASSWORD_VALUE}  blablabla
 ${TIMEOUT}               15s
 
