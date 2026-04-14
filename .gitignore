@@ -8,3 +8,5 @@ infra/terraform/.terraform/
 infra/terraform/terraform.tfstate*
 .env.prod
 .env.staging
+
+tests/robot/variables_local.py
