@@ -30,6 +30,7 @@ TC02 - Login valide affiche le dashboard
     Input Text        ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
     Input Password    ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
     Click Button      ${LOGIN_SUBMIT_BTN}
+    Sleep    2s
     Wait Until Element Is Visible    ${HEADER_TITLE}    ${TIMEOUT}
     Element Text Should Be           ${HEADER_TITLE}    ICT Trading Dashboard
     Capture Page Screenshot
@@ -45,6 +46,7 @@ TC03 - Dashboard affiche le header
     Input Text        ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
     Input Password    ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
     Click Button      ${LOGIN_SUBMIT_BTN}
+    Sleep    2s
     Wait Until Element Is Visible    ${HEADER_TITLE}    ${TIMEOUT}
     Element Text Should Be           ${HEADER_TITLE}    ICT Trading Dashboard
     Capture Page Screenshot
@@ -60,6 +62,7 @@ TC04 - Login avec mauvais mot de passe
     Input Text        ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
     Input Password    ${LOGIN_PASSWORD_INPUT}    ${WRONG_PASSWORD_VALUE}
     Click Button      ${LOGIN_SUBMIT_BTN}
+    Sleep    2s
     Wait Until Element Is Visible    ${LOGIN_PAGE}    ${TIMEOUT}
     Element Should Not Be Visible    ${HEADER_TITLE}
 
@@ -81,6 +84,7 @@ TC06 - Dashboard affiche les paires Forex
     Input Text        ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
     Input Password    ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
     Click Button      ${LOGIN_SUBMIT_BTN}
+    Sleep    2s
     Wait Until Element Is Visible    ${HEADER_TITLE}    ${TIMEOUT}
     Capture Page Screenshot
 
