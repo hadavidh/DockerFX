@@ -11,6 +11,7 @@ ${PASSWORD_VALUE}          change-me
 ${WRONG_PASSWORD_VALUE}    blablabla
 ${TIMEOUT}                 15s
 
+
 *** Test Cases ***
 TC01 - Titre de la page
     [Documentation]    Le titre de l'application web s'affiche
@@ -23,12 +24,14 @@ TC02 - Login valide affiche le dashboard
     [Tags]    login    securite
     Open Browser    ${URL}    ${BROWSER}
     Maximize Browser Window
-    Wait Until Element Is Visible    ${}  ${TIMEOUT}
-    Input Text        ${LOGIN_PAGE}              ${USERNAME_VALUE}
+    Wait Until Element Is Visible    ${LOGIN_PAGE}              ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_EMAIL_INPUT}       ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_PASSWORD_INPUT}    ${TIMEOUT}
+    Input Text        ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
     Input Password    ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
     Click Button      ${LOGIN_SUBMIT_BTN}
-    Wait Until Element Is Visible    css:[data-testid="header-title"]    ${TIMEOUT}
-    Element Text Should Be           css:[data-testid="header-title"]    ICT Trading Dashboard
+    Wait Until Element Is Visible    ${HEADER_TITLE}    ${TIMEOUT}
+    Element Text Should Be           ${HEADER_TITLE}    ICT Trading Dashboard
     Capture Page Screenshot
 
 TC03 - Dashboard affiche le header
@@ -36,12 +39,14 @@ TC03 - Dashboard affiche le header
     [Tags]    login    dashboard
     Open Browser    ${URL}    ${BROWSER}
     Maximize Browser Window
-    Wait Until Element Is Visible    ${LOGIN_PAGE}    ${TIMEOUT}
-    Input Text        ${LOGIN_PAGE}              ${USERNAME_VALUE}
+    Wait Until Element Is Visible    ${LOGIN_PAGE}              ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_EMAIL_INPUT}       ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_PASSWORD_INPUT}    ${TIMEOUT}
+    Input Text        ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
     Input Password    ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
     Click Button      ${LOGIN_SUBMIT_BTN}
-    Wait Until Element Is Visible    css:[data-testid="header-title"]    ${TIMEOUT}
-    Element Text Should Be           css:[data-testid="header-title"]    ICT Trading Dashboard
+    Wait Until Element Is Visible    ${HEADER_TITLE}    ${TIMEOUT}
+    Element Text Should Be           ${HEADER_TITLE}    ICT Trading Dashboard
     Capture Page Screenshot
 
 TC04 - Login avec mauvais mot de passe
@@ -49,29 +54,34 @@ TC04 - Login avec mauvais mot de passe
     [Tags]    login    securite
     Open Browser    ${URL}    ${BROWSER}
     Maximize Browser Window
-    Wait Until Element Is Visible    ${LOGIN_PAGE}    ${TIMEOUT}
-    Input Text        ${LOGIN_PAGE}              ${USERNAME_VALUE}
+    Wait Until Element Is Visible    ${LOGIN_PAGE}              ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_EMAIL_INPUT}       ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_PASSWORD_INPUT}    ${TIMEOUT}
+    Input Text        ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
     Input Password    ${LOGIN_PASSWORD_INPUT}    ${WRONG_PASSWORD_VALUE}
     Click Button      ${LOGIN_SUBMIT_BTN}
-    Element Should Not Be Visible    css:[data-testid="header-title"]
+    Wait Until Element Is Visible    ${LOGIN_PAGE}    ${TIMEOUT}
+    Element Should Not Be Visible    ${HEADER_TITLE}
 
 TC05 - Login avec champs vides
     [Documentation]    Bouton désactivé si les champs sont vides
     [Tags]    login    validation
     Open Browser    ${URL}    ${BROWSER}
-    Wait Until Element Is Visible    css:[data-testid="login-submit-btn"]    ${TIMEOUT}
-    Element Should Be Disabled       css:[data-testid="login-submit-btn"]
+    Wait Until Element Is Visible    ${LOGIN_SUBMIT_BTN}    ${TIMEOUT}
+    Element Should Be Disabled       ${LOGIN_SUBMIT_BTN}
 
 TC06 - Dashboard affiche les paires Forex
     [Documentation]    Le dashboard principal s'affiche
     [Tags]    smoke    dashboard
     Open Browser    ${URL}    ${BROWSER}
     Maximize Browser Window
-    Wait Until Element Is Visible    ${LOGIN_PAGE}    ${TIMEOUT}
-    Input Text        ${LOGIN_PAGE}              ${USERNAME_VALUE}
+    Wait Until Element Is Visible    ${LOGIN_PAGE}              ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_EMAIL_INPUT}       ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_PASSWORD_INPUT}    ${TIMEOUT}
+    Input Text        ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
     Input Password    ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
     Click Button      ${LOGIN_SUBMIT_BTN}
-    Wait Until Element Is Visible    css:[data-testid="header-title"]    ${TIMEOUT}
+    Wait Until Element Is Visible    ${HEADER_TITLE}    ${TIMEOUT}
     Capture Page Screenshot
 
 TC07 - Bouton AutoBot présent dans le header
@@ -95,7 +105,7 @@ TC10 - Analytics contient des graphiques
     Log    OK
 
 TC11 - Journal accessible
-    [Documentation]    La page Journal s'ouvre
+    [Documentation]    La page Journal s'affiche
     [Tags]    smoke    journal
     Log    OK
 
