@@ -151,16 +151,47 @@ jobs:
           done
           curl -sf http://localhost:3001/health || exit 1
 
-      - name: 🏗️ Build + démarrer frontend
+      # ── Frontend avec proxy API ───────────────────────────────
+      # IMPORTANT : on utilise un mini-serveur Express qui proxifie
+      # /api/ → backend:3001 en plus de servir les fichiers React.
+      # "serve" seul ne suffit pas : les appels /api/auth/login du
+      # navigateur atterrissaient sur serve → 404 → login échoue.
+      - name: 🏗️ Build + démarrer frontend avec proxy API
         run: |
           cd frontend && npm ci --silent && npm run build
-          npm install -g serve
-          serve -s dist -l 5173 &
-          sleep 5
-          curl -sf http://localhost:5173 && echo "✅ Frontend OK" || echo "⚠️ Frontend starting"
 
-      # ── Écrire les variables RF dans un fichier Python ────────
-      # → évite l'interpolation shell des caractères spéciaux ($, !, etc.)
+          # Installer express + proxy dans le dossier frontend
+          npm install --save-dev express http-proxy-middleware
+
+          # Mini-serveur proxy
+          cat > /tmp/frontend-server.js << 'JSEOF'
+          const express = require('/home/runner/work/DockerFX/DockerFX/frontend/node_modules/express')
+          const { createProxyMiddleware } = require('/home/runner/work/DockerFX/DockerFX/frontend/node_modules/http-proxy-middleware')
+          const path = require('path')
+          const app = express()
+          const DIST = path.join('/home/runner/work/DockerFX/DockerFX/frontend', 'dist')
+
+          // Proxy /api, /webhook, /ws → backend :3001
+          app.use('/api',     createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }))
+          app.use('/webhook', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true }))
+          app.use('/ws',      createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, ws: true }))
+
+          // Fichiers React statiques + SPA fallback
+          app.use(express.static(DIST))
+          app.get('*', (req, res) => res.sendFile(path.join(DIST, 'index.html')))
+
+          app.listen(5173, () => console.log('✅ Frontend + proxy API sur http://localhost:5173'))
+          JSEOF
+
+          node /tmp/frontend-server.js &
+          sleep 5
+
+          # Vérifier que les 2 routes répondent
+          curl -sf http://localhost:5173 && echo "✅ Frontend OK"
+          curl -sf http://localhost:5173/health && echo "✅ Proxy API OK" || echo "⚠️ Proxy check"
+
+      # ── Variables RF via fichier Python ───────────────────────
+      # Évite l'interpolation shell des caractères spéciaux ($, !)
       - name: 📝 Préparer les variables Robot Framework
         env:
           RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
@@ -250,9 +281,9 @@ jobs:
           reporter:      'java-junit'
           fail-on-error: false
 
-      # ── Vérification finale — BLOQUE le pipeline si échecs ────
-      # Lit les 2 fichiers output séparément pour éviter qu'un
-      # fichier manquant ne masque les échecs de l'autre
+      # ── Vérification finale — BLOQUE si échecs ────────────────
+      # Lit les 2 fichiers séparément — un fichier manquant
+      # ne masque pas les échecs de l'autre
       - name: ✅ Vérifier résultats (bloque si échecs)
         run: |
           python3 -c "
@@ -274,7 +305,7 @@ jobs:
               failed_total += failed
               passed_total += passed
 
-          print(f'')
+          print('')
           print(f'Total : {passed_total} passés | {failed_total} échoués')
           if failed_total > 0:
               print('❌ Build bloqué — corriger les tests avant de merger')
@@ -321,7 +352,7 @@ jobs:
 
 # ══════════════════════════════════════════════════════════════
 # JOB 4 — BUILD + PUSH DOCKER STAGING (develop uniquement)
-# Déclenché seulement si robot-tests == success
+# Déclenché SEULEMENT si robot-tests == success
 # ══════════════════════════════════════════════════════════════
 
   build-staging:
@@ -425,7 +456,7 @@ jobs:
 
 # ══════════════════════════════════════════════════════════════
 # JOB 6 — BUILD + PUSH DOCKER PRODUCTION (main uniquement)
-# Déclenché seulement si robot-tests == success
+# Déclenché SEULEMENT si robot-tests == success
 # ══════════════════════════════════════════════════════════════
 
   build-production:

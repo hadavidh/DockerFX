@@ -1,4 +1,12 @@
 *** Variables ***
+
+# ════════════════════════════════════════════════════════════════
+# locators.resource — Sélecteurs CSS via data-testid
+# SeleniumLibrary — préfixe css: requis
+# Convention : css:[data-testid="xxx"]
+# IMPORTANT : 4 espaces entre nom de variable et valeur
+# ════════════════════════════════════════════════════════════════
+
 # ── LOGIN ────────────────────────────────────────────────────────
 ${LOGIN_PAGE}              css:[data-testid="login-page"]
 ${LOGIN_CARD}              css:[data-testid="login-card"]
@@ -113,4 +121,4 @@ ${ORDER_ERROR_MSG}         css:[data-testid="order-error-msg"]
 ${ORDER_CANCEL_BTN}        css:[data-testid="order-cancel-btn"]
 ${ORDER_CONFIRM_BTN}       css:[data-testid="order-confirm-btn"]
 ${ORDER_SUCCESS}           css:[data-testid="order-success"]
-${ORDER_SUCCESS_CLOSE_BTN} css:[data-testid="order-success-close-btn"]
+${ORDER_SUCCESS_CLOSE_BTN}    css:[data-testid="order-success-close-btn"]
