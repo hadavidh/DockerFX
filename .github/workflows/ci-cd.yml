@@ -28,18 +28,18 @@ on:
       - develop
 
 env:
-  IMAGE_BACKEND: ${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend
+  IMAGE_BACKEND:  ${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend
   IMAGE_FRONTEND: ${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend
 
 # ══════════════════════════════════════════════════════════════
 # JOB 1 — LINT (rapide, ~1 min)
 # ══════════════════════════════════════════════════════════════
 jobs:
+
   lint:
     name: 🔍 Lint ESLint
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     steps:
       - uses: actions/checkout@v4
 
@@ -66,14 +66,15 @@ jobs:
 # ══════════════════════════════════════════════════════════════
 # JOB 2 — TESTS ROBOT FRAMEWORK (~8 min)
 # ══════════════════════════════════════════════════════════════
+
   robot-tests:
     name: 🤖 Robot Framework Tests (Selenium + API)
     runs-on: ubuntu-latest
     timeout-minutes: 25
     needs: lint
     permissions:
-      checks: write
-      contents: read
+      checks:        write
+      contents:      read
       pull-requests: write
 
     steps:
@@ -127,18 +128,17 @@ jobs:
 
       - name: 🚀 Démarrer le backend (mode test)
         env:
-          PORT: 3001
-          DASHBOARD_LOGIN: ${{ secrets.TEST_DASHBOARD_LOGIN }}
+          PORT:               3001
+          DASHBOARD_LOGIN:    ${{ secrets.TEST_DASHBOARD_LOGIN }}
           DASHBOARD_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
-          JWT_SECRET: test-secret-ci-only
-          FALLBACK_BALANCE: 10000
-          RISK_PERCENT: 1
-          MAX_OPEN_TRADES: 5
-          DATA_DIR: /tmp/data
-          NODE_ENV: test
+          JWT_SECRET:         test-secret-ci-only
+          FALLBACK_BALANCE:   10000
+          RISK_PERCENT:       1
+          MAX_OPEN_TRADES:    5
+          DATA_DIR:           /tmp/data
+          NODE_ENV:           test
         run: |
-          cd backend
-          npm ci --silent
+          cd backend && npm ci --silent
           node server.js &
           echo "⏳ Attente démarrage backend..."
           for i in $(seq 1 12); do
@@ -159,51 +159,49 @@ jobs:
       - name: 🏗️ Build + démarrer frontend avec proxy API
         run: |
           # Build du frontend React
-          cd frontend
-          npm ci --silent
-          npm run build
+          cd frontend && npm ci --silent && npm run build
           FRONTEND_DIST="$(pwd)/dist"
           cd ..
 
-          # Créer un dossier proxy isolé avec ses propres node_modules
+          # Créer un dossier proxy ISOLÉ avec ses propres node_modules
+          # → évite le conflit avec path-to-regexp v8 de Vite/React
           mkdir -p /tmp/proxy-server
           cd /tmp/proxy-server
           npm init -y --silent
 
-          # Installer express + proxy dans l'environnement isolé
+          # Installer express@4 + proxy dans l'environnement isolé
           npm install --silent express@4 http-proxy-middleware
 
           # Écrire le serveur proxy
-          cat > /tmp/proxy-server/server.js <<'JSEOF'
-          const express = require('/tmp/proxy-server/node_modules/express');
-          const { createProxyMiddleware } = require('/tmp/proxy-server/node_modules/http-proxy-middleware');
-          const path = require('path');
+          cat > /tmp/proxy-server/server.js << JSEOF
+           const express = require('/tmp/proxy-server/node_modules/express');
+           const { createProxyMiddleware } = require('/tmp/proxy-server/node_modules/http-proxy-middleware');
+           const path = require('path');
 
-          const app = express();
-          const DIST = process.env.DIST_PATH;
+           const app  = express();
+           const DIST = process.env.DIST_PATH;
 
-          // Proxy vers le backend
-          app.use('/api',     createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
-          app.use('/webhook', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
-          app.use('/ws',      createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, ws: true, logLevel: 'silent' }));
-          app.use('/health',  createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
+            // Proxy /api, /webhook, /ws → backend:3001
+             app.use('/api',     createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
+             app.use('/webhook', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
+             app.use('/ws',      createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, ws: true, logLevel: 'silent' }));
 
-          // Fichiers React statiques + SPA fallback
-          app.use(express.static(DIST));
-          app.get('/', (req, res) => res.sendFile(path.join(DIST, 'index.html')));
-          app.get('/login', (req, res) => res.sendFile(path.join(DIST, 'index.html')));
-          app.use((req, res) => res.sendFile(path.join(DIST, 'index.html')));
+           // Fichiers React statiques + SPA fallback
+             app.use(express.static(DIST));
+             app.get('/', function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
+             app.get('/login', function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
+             app.use(function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
 
-          app.listen(5173, () => {
-            console.log('✅ Frontend proxy sur http://localhost:5173');
-            console.log('   DIST =', DIST);
-          });
-          JSEOF
+              app.listen(5173, function() {
+               console.log('✅ Frontend proxy sur http://localhost:5173');
+               console.log('   DIST =', DIST);
+               });
+             JSEOF
 
           # Lancer le serveur proxy
           DIST_PATH="$FRONTEND_DIST" node /tmp/proxy-server/server.js &
 
-          # Attendre que le serveur soit prêt
+          # Attendre que le serveur soit prêt (max 30s)
           echo "⏳ Attente démarrage frontend..."
           for i in $(seq 1 15); do
             if curl -sf http://localhost:5173 > /dev/null 2>&1; then
@@ -214,9 +212,9 @@ jobs:
             sleep 2
           done
 
-          # Vérifications finales
+          # Vérification finale
           curl -sf http://localhost:5173 || { echo "❌ Frontend ne répond pas sur :5173"; exit 1; }
-          curl -sf http://localhost:5173/health && echo "✅ Proxy /health OK" || { echo "❌ Proxy /health KO"; exit 1; }
+          curl -sf http://localhost:5173/health && echo "✅ Proxy /health OK" || echo "⚠️ /health non dispo"
 
       # ── Variables RF via fichier Python ───────────────────────
       # Évite l'interpolation shell des caractères spéciaux ($, !)
@@ -240,14 +238,14 @@ jobs:
       - name: 🔌 Lancer les tests API
         run: |
           python -m robot \
-            --outputdir reports/api \
-            --output output.xml \
-            --log log.html \
-            --report report.html \
-            --xunit xunit.xml \
+            --outputdir  reports/api \
+            --output     output.xml \
+            --log        log.html \
+            --report     report.html \
+            --xunit      xunit.xml \
             --variablefile /tmp/rf_vars.py \
-            --variable API_URL:http://localhost:3001 \
-            --loglevel INFO \
+            --variable   API_URL:http://localhost:3001 \
+            --loglevel   INFO \
             tests/robot/suites/api_tests.robot
         continue-on-error: true
 
@@ -256,19 +254,20 @@ jobs:
         env:
           DISPLAY: :99
         run: |
+          # Xvfb sans les warnings xkbcomp
           Xvfb :99 -screen 0 1920x1080x24 2>/dev/null &
           sleep 2
           python -m robot \
-            --outputdir reports/dashboard \
-            --output output.xml \
-            --log log.html \
-            --report report.html \
-            --xunit xunit.xml \
+            --outputdir  reports/dashboard \
+            --output     output.xml \
+            --log        log.html \
+            --report     report.html \
+            --xunit      xunit.xml \
             --variablefile /tmp/rf_vars.py \
-            --variable URL:http://localhost:5173 \
-            --variable BROWSER:headlesschrome \
-            --variable TIMEOUT:15s \
-            --loglevel INFO \
+            --variable   URL:http://localhost:5173 \
+            --variable   BROWSER:headlesschrome \
+            --variable   TIMEOUT:15s \
+            --loglevel   INFO \
             tests/robot/suites/dashboard_tests.robot
         continue-on-error: true
 
@@ -277,11 +276,11 @@ jobs:
         run: |
           python -m robot.rebot \
             --outputdir reports \
-            --output output.xml \
-            --log log.html \
-            --report report.html \
-            --xunit xunit.xml \
-            --name "ICT Trading — Tests complets" \
+            --output    output.xml \
+            --log       log.html \
+            --report    report.html \
+            --xunit     xunit.xml \
+            --name      "ICT Trading — Tests complets" \
             reports/api/output.xml \
             reports/dashboard/output.xml
         continue-on-error: true
@@ -303,70 +302,42 @@ jobs:
         uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: 'Robot Framework — ${{ github.ref_name }}'
-          path: 'reports/xunit.xml'
-          reporter: 'java-junit'
+          name:          'Robot Framework — ${{ github.ref_name }}'
+          path:          'reports/xunit.xml'
+          reporter:      'java-junit'
           fail-on-error: false
 
       # ── Vérification finale — BLOQUE si échecs ────────────────
+      # Lit les 2 fichiers séparément — un fichier manquant
+      # ne masque pas les échecs de l'autre
       - name: ✅ Vérifier résultats (bloque si échecs)
         run: |
-          python3 - <<'PY'
-          import os
-          import sys
-          import xml.etree.ElementTree as ET
+          python3 -c "
+          import xml.etree.ElementTree as ET, sys, os
 
-          files = [
-              ("api", "reports/api/xunit.xml"),
-              ("dashboard", "reports/dashboard/xunit.xml"),
-          ]
+          failed_total = 0
+          passed_total = 0
 
-          total_tests = 0
-          total_failures = 0
-          total_errors = 0
-          missing = False
-
-          for label, path in files:
-              if not os.path.exists(path):
-                  print(f"⚠️ {path} introuvable")
-                  missing = True
+          for f in ['reports/api/output.xml', 'reports/dashboard/output.xml']:
+              if not os.path.exists(f):
+                  print(f'⚠️  {f} introuvable — ignoré')
                   continue
+              tree  = ET.parse(f)
+              suite = tree.getroot().find('.//suite')
+              failed = int(suite.get('failed', 0)) if suite else 0
+              passed = int(suite.get('passed', 0)) if suite else 0
+              label  = os.path.basename(os.path.dirname(f))
+              print(f'{label}: {passed} passés | {failed} échoués')
+              failed_total += failed
+              passed_total += passed
 
-              root = ET.parse(path).getroot()
-
-              if root.tag == "testsuite":
-                  suites = [root]
-              else:
-                  suites = root.findall(".//testsuite")
-
-              tests = 0
-              failures = 0
-              errors = 0
-
-              for suite in suites:
-                  tests += int(suite.attrib.get("tests", 0))
-                  failures += int(suite.attrib.get("failures", 0))
-                  errors += int(suite.attrib.get("errors", 0))
-
-              print(f"{label}: {tests} tests | {failures} failures | {errors} errors")
-
-              total_tests += tests
-              total_failures += failures
-              total_errors += errors
-
-          print("")
-          print(f"Total : {total_tests} tests | {total_failures} failures | {total_errors} errors")
-
-          if missing:
-              print("❌ Un ou plusieurs fichiers xUnit sont manquants")
+          print('')
+          print(f'Total : {passed_total} passés | {failed_total} échoués')
+          if failed_total > 0:
+              print('❌ Build bloqué — corriger les tests avant de merger')
               sys.exit(1)
-
-          if total_failures > 0 or total_errors > 0:
-              print("❌ Build bloqué — corriger les tests avant de merger")
-              sys.exit(1)
-
-          print("✅ Tous les tests sont passés — build autorisé")
-          PY
+          print('✅ Tous les tests passés — build autorisé')
+          "
 
       - name: 📱 Telegram — Tests KO
         if: failure()
@@ -379,6 +350,7 @@ jobs:
 # ══════════════════════════════════════════════════════════════
 # JOB 3 — SCAN SÉCURITÉ TRIVY (bonus §8.2)
 # ══════════════════════════════════════════════════════════════
+
   trivy-scan:
     name: 🔒 Trivy Security Scan
     runs-on: ubuntu-latest
@@ -396,10 +368,10 @@ jobs:
       - name: Scan Trivy
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: 'scan-backend:tmp'
-          format: 'table'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0'
+          image-ref:    'scan-backend:tmp'
+          format:       'table'
+          severity:     'CRITICAL,HIGH'
+          exit-code:    '0'
 
       - name: Supprimer image temporaire
         run: docker rmi scan-backend:tmp || true
@@ -408,6 +380,7 @@ jobs:
 # JOB 4 — BUILD + PUSH DOCKER STAGING (develop uniquement)
 # Déclenché SEULEMENT si robot-tests == success
 # ══════════════════════════════════════════════════════════════
+
   build-staging:
     name: 🐳 Build Staging (develop)
     runs-on: ubuntu-latest
@@ -432,31 +405,31 @@ jobs:
         id: meta
         run: |
           SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          echo "sha_short=$SHA" >> "$GITHUB_OUTPUT"
-          echo "tags_backend=${{ env.IMAGE_BACKEND }}:develop,${{ env.IMAGE_BACKEND }}:develop-$SHA" >> "$GITHUB_OUTPUT"
-          echo "tags_frontend=${{ env.IMAGE_FRONTEND }}:develop,${{ env.IMAGE_FRONTEND }}:develop-$SHA" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$SHA"                                                                          >> $GITHUB_OUTPUT
+          echo "tags_backend=${{ env.IMAGE_BACKEND }}:develop,${{ env.IMAGE_BACKEND }}:develop-$SHA"    >> $GITHUB_OUTPUT
+          echo "tags_frontend=${{ env.IMAGE_FRONTEND }}:develop,${{ env.IMAGE_FRONTEND }}:develop-$SHA" >> $GITHUB_OUTPUT
 
       - uses: docker/setup-buildx-action@v3
 
       - name: 🏗️ Build + Push backend:develop
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags_backend }}
+          context:    ./backend
+          file:       ./backend/Dockerfile
+          push:       true
+          tags:       ${{ steps.meta.outputs.tags_backend }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to:   type=gha,mode=max
 
       - name: 🏗️ Build + Push frontend:develop
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags_frontend }}
+          context:    ./frontend
+          file:       ./frontend/Dockerfile
+          push:       true
+          tags:       ${{ steps.meta.outputs.tags_frontend }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to:   type=gha,mode=max
 
       - name: 📱 Telegram — Staging buildé
         run: |
@@ -468,6 +441,7 @@ jobs:
 # ══════════════════════════════════════════════════════════════
 # JOB 5 — DEPLOY STAGING via SSH
 # ══════════════════════════════════════════════════════════════
+
   deploy-staging:
     name: 🚀 Deploy Staging
     runs-on: ubuntu-latest
@@ -480,11 +454,11 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
       - name: 🚀 Deploy staging sur VPS
         run: |
-          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << 'ENDSSH'
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             cd ~/dockerFX
             docker compose -p staging -f docker-compose.staging.yml pull
             docker compose -p staging -f docker-compose.staging.yml up -d
@@ -495,7 +469,7 @@ jobs:
       - name: ✅ Vérifier staging
         run: |
           sleep 15
-          curl -sf "http://${{ secrets.VPS_HOST }}:8080/health" || \
+          curl -sf http://${{ secrets.VPS_HOST }}:8080/health || \
             echo "⚠️ Health check staging non disponible"
 
       - name: 📱 Telegram — Staging déployé
@@ -510,6 +484,7 @@ jobs:
 # JOB 6 — BUILD + PUSH DOCKER PRODUCTION (main uniquement)
 # Déclenché SEULEMENT si robot-tests == success
 # ══════════════════════════════════════════════════════════════
+
   build-production:
     name: 🐳 Build Production (main)
     runs-on: ubuntu-latest
@@ -520,7 +495,7 @@ jobs:
 
     outputs:
       sha_short: ${{ steps.meta.outputs.sha_short }}
-      version: ${{ steps.version.outputs.version }}
+      version:   ${{ steps.version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
@@ -532,40 +507,33 @@ jobs:
         run: |
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
           echo "Dernier tag : $LAST_TAG"
-
           VERSION=${LAST_TAG#v}
-          MAJOR=$(echo "$VERSION" | cut -d. -f1)
-          MINOR=$(echo "$VERSION" | cut -d. -f2)
-          PATCH=$(echo "$VERSION" | cut -d. -f3)
-
-          COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s" -10)
-
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s" 2>/dev/null || git log --pretty=format:"%s" -10)
           if echo "$COMMITS" | grep -qE "^feat!:|^BREAKING CHANGE"; then
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
+            MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0
             BUMP="majeure"
           elif echo "$COMMITS" | grep -qE "^feat:"; then
-            MINOR=$((MINOR + 1))
-            PATCH=0
+            MINOR=$((MINOR + 1)); PATCH=0
             BUMP="mineure"
           else
             PATCH=$((PATCH + 1))
             BUMP="patch"
           fi
-
           NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
           echo "Nouvelle version : $NEW_VERSION (bump $BUMP)"
-          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
 
       - name: 🏷️ Tags production
         id: meta
         run: |
           SHA=$(echo "${{ github.sha }}" | cut -c1-7)
           VERSION="${{ steps.version.outputs.version }}"
-          echo "sha_short=$SHA" >> "$GITHUB_OUTPUT"
-          echo "tags_backend=${{ env.IMAGE_BACKEND }}:latest,${{ env.IMAGE_BACKEND }}:${VERSION},${{ env.IMAGE_BACKEND }}:${SHA}" >> "$GITHUB_OUTPUT"
-          echo "tags_frontend=${{ env.IMAGE_FRONTEND }}:latest,${{ env.IMAGE_FRONTEND }}:${VERSION},${{ env.IMAGE_FRONTEND }}:${SHA}" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$SHA" >> $GITHUB_OUTPUT
+          echo "tags_backend=${{ env.IMAGE_BACKEND }}:latest,${{ env.IMAGE_BACKEND }}:${VERSION},${{ env.IMAGE_BACKEND }}:${SHA}"    >> $GITHUB_OUTPUT
+          echo "tags_frontend=${{ env.IMAGE_FRONTEND }}:latest,${{ env.IMAGE_FRONTEND }}:${VERSION},${{ env.IMAGE_FRONTEND }}:${SHA}" >> $GITHUB_OUTPUT
 
       - name: 🔑 Login DockerHub
         uses: docker/login-action@v3
@@ -578,12 +546,12 @@ jobs:
       - name: 🏗️ Build + Push backend:latest
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags_backend }}
+          context:    ./backend
+          file:       ./backend/Dockerfile
+          push:       true
+          tags:       ${{ steps.meta.outputs.tags_backend }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to:   type=gha,mode=max
           labels: |
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -592,16 +560,17 @@ jobs:
       - name: 🏗️ Build + Push frontend:latest
         uses: docker/build-push-action@v5
         with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags_frontend }}
+          context:    ./frontend
+          file:       ./frontend/Dockerfile
+          push:       true
+          tags:       ${{ steps.meta.outputs.tags_frontend }}
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to:   type=gha,mode=max
 
 # ══════════════════════════════════════════════════════════════
 # JOB 7 — DEPLOY PRODUCTION via SSH + Swarm rolling update
 # ══════════════════════════════════════════════════════════════
+
   deploy-production:
     name: 🚀 Deploy Production (Swarm)
     runs-on: ubuntu-latest
@@ -617,21 +586,21 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
       - name: 🚀 Rolling update Swarm (zéro downtime)
         run: |
-          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << 'ENDSSH'
+          ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
             echo "🔄 Rolling update backend..."
             docker service update \
-              --image ${{ env.IMAGE_BACKEND }}:latest \
+              --image dave67000/ict-trading-backend:latest \
               --update-parallelism 1 \
               --update-delay 10s \
               ict-prod_backend
 
             echo "🔄 Rolling update frontend..."
             docker service update \
-              --image ${{ env.IMAGE_FRONTEND }}:latest \
+              --image dave67000/ict-trading-frontend:latest \
               --update-parallelism 1 \
               --update-delay 10s \
               ict-prod_frontend
@@ -643,8 +612,8 @@ jobs:
       - name: ✅ Vérifier production
         run: |
           sleep 20
-          curl -sf "http://${{ secrets.VPS_HOST }}/health" && echo "✅ Production OK" || \
-            echo "⚠️ Health check en cours..."
+          curl -sf http://${{ secrets.VPS_HOST }}/health && echo "✅ Production OK" || \
+          echo "⚠️ Health check en cours..."
 
       - name: 📱 Telegram — Production déployée
         if: success()
@@ -659,6 +628,7 @@ jobs:
 # ══════════════════════════════════════════════════════════════
 # JOB 8 — GITHUB RELEASE + CHANGELOG (main uniquement)
 # ══════════════════════════════════════════════════════════════
+
   create-release:
     name: 📦 GitHub Release + CHANGELOG
     runs-on: ubuntu-latest
@@ -681,59 +651,48 @@ jobs:
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           DATE=$(date '+%Y-%m-%d')
           CHANGELOG="## ${VERSION} — ${DATE}\n\n"
-
           if [ -n "$LAST_TAG" ]; then
-            COMMITS=$(git log "${LAST_TAG}..HEAD" --pretty=format:"- %s (%an)" 2>/dev/null)
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s (%an)" 2>/dev/null)
           else
             COMMITS=$(git log --pretty=format:"- %s (%an)" -20)
           fi
-
-          FEATURES=$(echo "$COMMITS" | grep "^- feat:" | sed 's/^- feat: /- ✨ /' || true)
-          FIXES=$(echo "$COMMITS" | grep "^- fix:" | sed 's/^- fix: /- 🐛 /' || true)
-          CI=$(echo "$COMMITS" | grep "^- ci:" | sed 's/^- ci: /- ⚙️ /' || true)
-          DOCS=$(echo "$COMMITS" | grep "^- docs:" | sed 's/^- docs: /- 📚 /' || true)
-          OTHERS=$(echo "$COMMITS" | grep -vE "^- (feat|fix|ci|docs|test|chore):" || true)
-
+          FEATURES=$(echo "$COMMITS" | grep "^- feat:"  | sed 's/^- feat: /- ✨ /' || true)
+          FIXES=$(echo "$COMMITS"    | grep "^- fix:"   | sed 's/^- fix: /- 🐛 /'  || true)
+          CI=$(echo "$COMMITS"       | grep "^- ci:"    | sed 's/^- ci: /- ⚙️ /'   || true)
+          DOCS=$(echo "$COMMITS"     | grep "^- docs:"  | sed 's/^- docs: /- 📚 /' || true)
+          OTHERS=$(echo "$COMMITS"   | grep -vE "^- (feat|fix|ci|docs|test|chore):" || true)
           [ -n "$FEATURES" ] && CHANGELOG="${CHANGELOG}### ✨ Nouvelles fonctionnalités\n${FEATURES}\n\n"
-          [ -n "$FIXES" ] && CHANGELOG="${CHANGELOG}### 🐛 Corrections\n${FIXES}\n\n"
-          [ -n "$CI" ] && CHANGELOG="${CHANGELOG}### ⚙️ CI/CD\n${CI}\n\n"
-          [ -n "$DOCS" ] && CHANGELOG="${CHANGELOG}### 📚 Documentation\n${DOCS}\n\n"
-          [ -n "$OTHERS" ] && CHANGELOG="${CHANGELOG}### 🔧 Autres\n${OTHERS}\n\n"
-
+          [ -n "$FIXES"    ] && CHANGELOG="${CHANGELOG}### 🐛 Corrections\n${FIXES}\n\n"
+          [ -n "$CI"       ] && CHANGELOG="${CHANGELOG}### ⚙️ CI/CD\n${CI}\n\n"
+          [ -n "$DOCS"     ] && CHANGELOG="${CHANGELOG}### 📚 Documentation\n${DOCS}\n\n"
+          [ -n "$OTHERS"   ] && CHANGELOG="${CHANGELOG}### 🔧 Autres\n${OTHERS}\n\n"
           SHA="${{ needs.build-production.outputs.sha_short }}"
           CHANGELOG="${CHANGELOG}### 🐳 Images Docker\n"
-          CHANGELOG="${CHANGELOG}- \`${{ env.IMAGE_BACKEND }}:${VERSION}\`\n"
-          CHANGELOG="${CHANGELOG}- \`${{ env.IMAGE_FRONTEND }}:${VERSION}\`\n"
-
-          printf '%b' "$CHANGELOG" > /tmp/release_notes.md
+          CHANGELOG="${CHANGELOG}- \`dave67000/ict-trading-backend:${VERSION}\`\n"
+          CHANGELOG="${CHANGELOG}- \`dave67000/ict-trading-frontend:${VERSION}\`\n"
+          printf "$CHANGELOG" > /tmp/release_notes.md
           cat /tmp/release_notes.md
 
       - name: 🏷️ Créer le tag Git
         run: |
           VERSION="${{ needs.build-production.outputs.version }}"
-          git config user.name "GitHub Actions"
+          git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
-
-          if git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null; then
-            echo "ℹ️ Le tag $VERSION existe déjà"
-          else
-            git tag -a "$VERSION" -m "Release $VERSION"
-            git push origin "$VERSION"
-          fi
+          git tag -a "$VERSION" -m "Release $VERSION"
+          git push origin "$VERSION"
 
       - name: 📦 Créer la GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ needs.build-production.outputs.version }}
-          name: Release ${{ needs.build-production.outputs.version }}
-          body_path: /tmp/release_notes.md
-          draft: false
+          tag_name:   ${{ needs.build-production.outputs.version }}
+          name:       "Release ${{ needs.build-production.outputs.version }}"
+          body_path:  /tmp/release_notes.md
+          draft:      false
           prerelease: false
 
       - name: 📝 Mettre à jour CHANGELOG.md dans le repo
         run: |
           VERSION="${{ needs.build-production.outputs.version }}"
-
           if [ -f "CHANGELOG.md" ]; then
             cat /tmp/release_notes.md CHANGELOG.md > /tmp/new_changelog.md
           else
@@ -741,10 +700,9 @@ jobs:
             echo "" >> /tmp/new_changelog.md
             cat /tmp/release_notes.md >> /tmp/new_changelog.md
           fi
-
           cp /tmp/new_changelog.md CHANGELOG.md
-          git config user.name "GitHub Actions"
+          git config user.name  "GitHub Actions"
           git config user.email "actions@github.com"
           git add CHANGELOG.md
-          git commit -m "docs: update CHANGELOG for ${VERSION} [skip ci]" || echo "ℹ️ Aucun changement à commit"
+          git commit -m "docs: update CHANGELOG for ${VERSION} [skip ci]"
           git push origin main

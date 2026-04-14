@@ -174,29 +174,29 @@ jobs:
 
           # Écrire le serveur proxy
           cat > /tmp/proxy-server/server.js << JSEOF
-const express = require('/tmp/proxy-server/node_modules/express');
-const { createProxyMiddleware } = require('/tmp/proxy-server/node_modules/http-proxy-middleware');
-const path = require('path');
+           const express = require('/tmp/proxy-server/node_modules/express');
+           const { createProxyMiddleware } = require('/tmp/proxy-server/node_modules/http-proxy-middleware');
+           const path = require('path');
 
-const app  = express();
-const DIST = process.env.DIST_PATH;
+           const app  = express();
+           const DIST = process.env.DIST_PATH;
 
-// Proxy /api, /webhook, /ws → backend:3001
-app.use('/api',     createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
-app.use('/webhook', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
-app.use('/ws',      createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, ws: true, logLevel: 'silent' }));
+            // Proxy /api, /webhook, /ws → backend:3001
+             app.use('/api',     createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
+             app.use('/webhook', createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, logLevel: 'silent' }));
+             app.use('/ws',      createProxyMiddleware({ target: 'http://localhost:3001', changeOrigin: true, ws: true, logLevel: 'silent' }));
 
-// Fichiers React statiques + SPA fallback
-app.use(express.static(DIST));
-app.get('/', function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
-app.get('/login', function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
-app.use(function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
+           // Fichiers React statiques + SPA fallback
+             app.use(express.static(DIST));
+             app.get('/', function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
+             app.get('/login', function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
+             app.use(function(req, res) { res.sendFile(path.join(DIST, 'index.html')); });
 
-app.listen(5173, function() {
-  console.log('✅ Frontend proxy sur http://localhost:5173');
-  console.log('   DIST =', DIST);
-});
-JSEOF
+              app.listen(5173, function() {
+               console.log('✅ Frontend proxy sur http://localhost:5173');
+               console.log('   DIST =', DIST);
+               });
+             JSEOF
 
           # Lancer le serveur proxy
           DIST_PATH="$FRONTEND_DIST" node /tmp/proxy-server/server.js &
