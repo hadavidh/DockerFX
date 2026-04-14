@@ -31,11 +31,13 @@ export default function Login({ onAuth }) {
   }
 
   return (
-    <div style={{
-      minHeight:'100vh', background:'#080c14',
-      display:'flex', alignItems:'center', justifyContent:'center',
-      fontFamily:"'Space Grotesk', sans-serif", padding:20,
-    }}>
+    <div
+      data-testid="login-page"
+      style={{
+        minHeight:'100vh', background:'#080c14',
+        display:'flex', alignItems:'center', justifyContent:'center',
+        fontFamily:"'Space Grotesk', sans-serif", padding:20,
+      }}>
       {/* Ambient glow */}
       <div style={{
         position:'fixed', top:'20%', left:'50%', transform:'translateX(-50%)',
@@ -44,12 +46,14 @@ export default function Login({ onAuth }) {
         pointerEvents:'none',
       }}/>
 
-      <div style={{
-        width:'100%', maxWidth:400,
-        background:'#0d1420', border:'1px solid rgba(255,255,255,.08)',
-        borderRadius:16, overflow:'hidden',
-        boxShadow:'0 24px 64px rgba(0,0,0,.5)',
-      }}>
+      <div
+        data-testid="login-card"
+        style={{
+          width:'100%', maxWidth:400,
+          background:'#0d1420', border:'1px solid rgba(255,255,255,.08)',
+          borderRadius:16, overflow:'hidden',
+          boxShadow:'0 24px 64px rgba(0,0,0,.5)',
+        }}>
         {/* Header */}
         <div style={{
           padding:'28px 28px 20px',
@@ -57,14 +61,16 @@ export default function Login({ onAuth }) {
           background:'rgba(59,130,246,.04)',
         }}>
           <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-            <div style={{
-              width:44, height:44, borderRadius:10,
-              background:'linear-gradient(135deg,#1d4ed8,#3b82f6)',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:18, fontWeight:700, color:'#fff', letterSpacing:-1,
-            }}>FX</div>
+            <div
+              data-testid="login-logo"
+              style={{
+                width:44, height:44, borderRadius:10,
+                background:'linear-gradient(135deg,#1d4ed8,#3b82f6)',
+                display:'flex', alignItems:'center', justifyContent:'center',
+                fontSize:18, fontWeight:700, color:'#fff', letterSpacing:-1,
+              }}>FX</div>
             <div>
-              <div style={{ fontSize:18, fontWeight:600, color:'#e2e8f0' }}>ICT Dashboard</div>
+              <div data-testid="login-title" style={{ fontSize:18, fontWeight:600, color:'#e2e8f0' }}>ICT Dashboard</div>
               <div style={{ fontSize:11, color:'#64748b', marginTop:1 }}>FTMO · cTrader Open API</div>
             </div>
           </div>
@@ -74,14 +80,21 @@ export default function Login({ onAuth }) {
         </div>
 
         {/* Form */}
-        <form onSubmit={submit} style={{ padding:28 }}>
+        <form
+          data-testid="login-form"
+          onSubmit={submit}
+          style={{ padding:28 }}>
+
           {/* Email */}
           <div style={{ marginBottom:14 }}>
-            <label style={{
-              display:'block', fontSize:10, color:'#64748b',
-              marginBottom:6, letterSpacing:'.8px', textTransform:'uppercase',
-            }}>Email</label>
+            <label
+              data-testid="login-email-label"
+              style={{
+                display:'block', fontSize:10, color:'#64748b',
+                marginBottom:6, letterSpacing:'.8px', textTransform:'uppercase',
+              }}>Email</label>
             <input
+              data-testid="login-email-input"
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -100,12 +113,15 @@ export default function Login({ onAuth }) {
 
           {/* Password */}
           <div style={{ marginBottom:20 }}>
-            <label style={{
-              display:'block', fontSize:10, color:'#64748b',
-              marginBottom:6, letterSpacing:'.8px', textTransform:'uppercase',
-            }}>Mot de passe</label>
+            <label
+              data-testid="login-password-label"
+              style={{
+                display:'block', fontSize:10, color:'#64748b',
+                marginBottom:6, letterSpacing:'.8px', textTransform:'uppercase',
+              }}>Mot de passe</label>
             <div style={{ position:'relative' }}>
               <input
+                data-testid="login-password-input"
                 type={showPwd ? 'text' : 'password'}
                 value={password}
                 onChange={e => setPassword(e.target.value)}
@@ -121,6 +137,7 @@ export default function Login({ onAuth }) {
                 onBlur={e   => e.target.style.borderColor='rgba(255,255,255,.08)'}
               />
               <button
+                data-testid="login-show-password-btn"
                 type="button"
                 onClick={() => setShowPwd(!showPwd)}
                 style={{
@@ -134,17 +151,20 @@ export default function Login({ onAuth }) {
 
           {/* Error */}
           {error && (
-            <div style={{
-              background:'rgba(255,69,96,.08)', border:'1px solid rgba(255,69,96,.2)',
-              borderRadius:8, padding:'9px 12px', marginBottom:14,
-              fontSize:12, color:'#ff4560', display:'flex', alignItems:'center', gap:6,
-            }}>
+            <div
+              data-testid="login-error-msg"
+              style={{
+                background:'rgba(255,69,96,.08)', border:'1px solid rgba(255,69,96,.2)',
+                borderRadius:8, padding:'9px 12px', marginBottom:14,
+                fontSize:12, color:'#ff4560', display:'flex', alignItems:'center', gap:6,
+              }}>
               ⚠ {error}
             </div>
           )}
 
           {/* Submit */}
           <button
+            data-testid="login-submit-btn"
             type="submit"
             disabled={loading || !email || !password}
             style={{
@@ -164,10 +184,12 @@ export default function Login({ onAuth }) {
           </button>
 
           {/* Security note */}
-          <div style={{
-            marginTop:16, textAlign:'center',
-            fontSize:10, color:'#334155', letterSpacing:'.3px',
-          }}>
+          <div
+            data-testid="login-security-note"
+            style={{
+              marginTop:16, textAlign:'center',
+              fontSize:10, color:'#334155', letterSpacing:'.3px',
+            }}>
             🔒 Session sécurisée · Expire après 24h
           </div>
         </form>

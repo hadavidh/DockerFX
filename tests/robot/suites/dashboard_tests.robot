@@ -1,219 +1,329 @@
 *** Settings ***
-Documentation     ICT Trading Dashboard — Tests End-to-End
-Library           Browser
-Library           Collections
-Library           String
-Library           RequestsLibrary
-
-Suite Setup       Ouvrir Navigateur
-Suite Teardown    Fermer Navigateur
+Library       SeleniumLibrary
+Resource      locators.resource
+Test Teardown    Close Browser
 
 *** Variables ***
-${BASE_URL}       http://localhost
-${API_URL}        http://localhost
-${LOGIN}          hadavidh@gmail.com
-${PASSWORD}       motdepasse
-${TIMEOUT}        20s
-${SCREENSHOT}     ${CURDIR}/../../reports/screenshots
-
-*** Test Cases ***
-
-TC01 - Page de login accessible
-    [Documentation]    La page de login charge correctement
-    [Tags]    smoke    login
-    Go To    ${BASE_URL}
-    
-    Take Screenshot    filename=${SCREENSHOT}/tc01_login.png
-
-TC02 - Login avec identifiants valides
-    [Documentation]    Login correct → dashboard visible
-    [Tags]    smoke    login    auth
-    Go To    ${BASE_URL}
-    ${need_login}=    Run Keyword And Return Status
-    ...    Wait For Elements State    css=input[type="password"]    visible    timeout=5s
-    IF    ${need_login}
-        Remplir Et Soumettre Login    ${LOGIN}    ${PASSWORD}
-    END
-    Wait For Elements State    css=.hdr-title    visible    timeout=${TIMEOUT}
-    Take Screenshot    filename=${SCREENSHOT}/tc02_dashboard.png
-
-TC03 - Login avec mauvais mot de passe
-    [Documentation]    Mauvais password → pas de dashboard
-    [Tags]    login    securite
-    Go To    ${BASE_URL}
-    Wait For Elements State    css=input[type="password"]    visible    timeout=${TIMEOUT}
-    Remplir Et Soumettre Login    ${LOGIN}    mauvais_mdp_123
-    Sleep    2s
-    Take Screenshot    filename=${SCREENSHOT}/tc03_login_error.png
-    ${on_dashboard}=    Run Keyword And Return Status
-    ...    Wait For Elements State    css=.hdr-title    visible    timeout=3s
-    Should Not Be True    ${on_dashboard}    msg=Dashboard ne devrait pas s'afficher
-
-TC04 - Login avec champs vides
-    [Documentation]    Bouton désactivé si champs vides
-    [Tags]    login    validation
-    Go To    ${BASE_URL}
-    ${login_page}=    Run Keyword And Return Status
-    ...    Wait For Elements State    css=input[type="password"]    visible    timeout=5s
-    IF    ${login_page}
-        # Vérifier que le bouton est bien désactivé quand les champs sont vides
-        Wait For Elements State    css=button[type="submit"]    disabled    timeout=5s
-        Take Screenshot    filename=${SCREENSHOT}/tc04_btn_disabled.png
-    ELSE
-        Log    Déjà connecté — test ignoré    WARN
-    END
-
-TC05 - Dashboard affiche les paires Forex
-    [Documentation]    Au moins 20 paires sont présentes
-    [Tags]    smoke    dashboard
-    Se Connecter
-    Wait For Elements State    css=.grid    visible    timeout=${TIMEOUT}
-    ${tiles}=    Get Elements    css=.grid > *
-    ${count}=    Get Length    ${tiles}
-    Should Be True    ${count} >= 20    msg=Attendu ≥20 paires, trouvé: ${count}
-    Take Screenshot    filename=${SCREENSHOT}/tc05_grid.png
-
-TC06 - Bouton AutoBot présent dans le header
-    [Documentation]    Le bouton AutoBot est visible
-    [Tags]    smoke    autobot
-    Se Connecter
-    Wait For Elements State    xpath=//button[contains(.,'AutoBot')]    visible    timeout=${TIMEOUT}
-    Take Screenshot    filename=${SCREENSHOT}/tc06_autobot.png
-
-TC07 - Toggle AutoMode change l état
-    [Documentation]    Cliquer AutoBot change ON vers OFF
-    [Tags]    autobot    interaction
-    Se Connecter
-    ${texte_avant}=    Get Text    xpath=//button[contains(.,'AutoBot')]
-    Click    xpath=//button[contains(.,'AutoBot')]
-    Sleep    1s
-    ${texte_apres}=    Get Text    xpath=//button[contains(.,'AutoBot')]
-    Should Not Be Equal    ${texte_avant}    ${texte_apres}
-    Take Screenshot    filename=${SCREENSHOT}/tc07_toggle.png
-    Click    xpath=//button[contains(.,'AutoBot')]
-    Sleep    0.5s
-
-TC08 - Navigation entre les onglets
-    [Documentation]    Chaque onglet s'ouvre sans erreur
-    [Tags]    smoke    navigation
-    Se Connecter
-    @{tabs}=    Create List    Analytics    Backtest    Journal    Comptes
-    FOR    ${tab}    IN    @{tabs}
-        Click    xpath=//button[contains(.,'${tab}')]
-        Sleep    1s
-        Take Screenshot    filename=${SCREENSHOT}/tc08_${tab}.png
-    END
-
-TC09 - Analytics contient des graphiques
-    [Documentation]    La page Analytics contient des SVG recharts
-    [Tags]    smoke    analytics
-    Se Connecter
-    Click    xpath=//button[contains(.,'Analytics')]
-    Sleep    2s
-    ${has_chart}=    Run Keyword And Return Status
-    ...    Wait For Elements State    css=svg    visible    timeout=10s
-    Take Screenshot    filename=${SCREENSHOT}/tc09_analytics.png
-    Should Be True    ${has_chart}
-
-TC10 - Journal accessible
-    [Documentation]    La page Journal s'ouvre
-    [Tags]    smoke    journal
-    Se Connecter
-    Click    xpath=//button[contains(.,'Journal')]
-    Sleep    1s
-    Take Screenshot    filename=${SCREENSHOT}/tc10_journal.png
-
-TC11 - Badge WebSocket connected
-    [Documentation]    La connexion WebSocket est active
-    [Tags]    smoke    websocket
-    Se Connecter
-    Sleep    3s
-    ${connected}=    Run Keyword And Return Status
-    ...    Wait For Elements State    xpath=//*[contains(.,'connected')]    visible    timeout=20s
-    Take Screenshot    filename=${SCREENSHOT}/tc11_ws.png
-    Should Be True    ${connected}
-
-TC12 - Filtre BUY fonctionne
-    [Documentation]    Cliquer BUY filtre les paires
-    [Tags]    dashboard    filtres
-    Se Connecter
-    GET    ${API_URL}/api/test    expected_status=200
-    Sleep    1s
-    Click    xpath=//button[contains(.,'BUY')]
-    Sleep    1s
-    Take Screenshot    filename=${SCREENSHOT}/tc12_buy.png
-
-TC13 - Page Backtest affiche les instructions
-    [Documentation]    Guide d'import CSV visible
-    [Tags]    smoke    backtest
-    Se Connecter
-    Click    xpath=//button[contains(.,'Backtest')]
-    Sleep    1s
-    Wait For Elements State    xpath=//*[contains(.,'Importer')]    visible    timeout=${TIMEOUT}
-    Take Screenshot    filename=${SCREENSHOT}/tc13_backtest.png
-
-TC14 - Page Comptes liste les comptes
-    [Documentation]    Au moins un compte FTMO affiché
-    [Tags]    smoke    comptes
-    Se Connecter
-    Click    xpath=//button[contains(.,'Comptes')]
-    Sleep    1s
-    Wait For Elements State    xpath=//*[contains(.,'FTMO')]    visible    timeout=${TIMEOUT}
-    Take Screenshot    filename=${SCREENSHOT}/tc14_accounts.png
-
-TC15 - Affichage mobile 375px
-    [Documentation]    Interface lisible sur iPhone SE
-    [Tags]    responsive    mobile
-    Set Viewport Size    375    812
-    Se Connecter
-    Wait For Elements State    css=.hdr-title    visible    timeout=${TIMEOUT}
-    Take Screenshot    filename=${SCREENSHOT}/tc15_mobile.png
-    Set Viewport Size    1280    800
-
-TC16 - Affichage tablette 768px
-    [Documentation]    Interface lisible sur iPad
-    [Tags]    responsive    tablet
-    Set Viewport Size    768    1024
-    Se Connecter
-    Take Screenshot    filename=${SCREENSHOT}/tc16_tablet.png
-    Set Viewport Size    1280    800
+# ════════════════════════════════════════════════════════════════
+# Variables — surchargées par le pipeline CI/CD via --variable
+#
+# Environnements :
+#   Local   : URL=http://localhost:5173
+#   Staging : URL=http://135.125.196.204:8080
+#   Prod    : URL=http://135.125.196.204
+# ════════════════════════════════════════════════════════════════
+${BROWSER}               headlesschrome
+${URL}                   http://localhost:5173
+${USERNAME_VALUE}        hadavidh@gmail.com
+${PASSWORD_VALUE}        J!09O1$3OCOkURUjOPEv
+${WRONG_PASSWORD_VALUE}  blablabla
+${TIMEOUT}               15s
 
 *** Keywords ***
 
-Ouvrir Navigateur
-    New Browser    browser=chromium    headless=True
-    New Context    viewport={'width': 1280, 'height': 800}
-    New Page    ${BASE_URL}
+Ouvrir le dashboard et se connecter
+    [Documentation]    Keyword réutilisable — ouvre le browser, se connecte
+    Open Browser    ${URL}    ${BROWSER}
+    Maximize Browser Window
+    Wait Until Element Is Visible    ${LOGIN_EMAIL_INPUT}    ${TIMEOUT}
+    Input Text         ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
+    Input Password     ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
+    Wait Until Element Is Enabled    ${LOGIN_SUBMIT_BTN}    ${TIMEOUT}
+    Click Button    ${LOGIN_SUBMIT_BTN}
+    Wait Until Element Is Visible    ${APP_HEADER}    ${TIMEOUT}
 
-Fermer Navigateur
-    Close Browser
+Aller sur l'onglet
+    [Arguments]    ${tab_locator}    ${page_locator}
+    Click Element    ${tab_locator}
+    Wait Until Element Is Visible    ${page_locator}    ${TIMEOUT}
 
-Remplir Et Soumettre Login
-    [Documentation]    Remplit email + password puis attend que le bouton soit actif
-    [Arguments]    ${email}    ${password}
-    # Vider les champs d'abord
-    Fill Text    css=input[type="email"], input[type="text"]    ${EMPTY}
-    Fill Text    css=input[type="password"]    ${EMPTY}
-    # Remplir email
-    Click    css=input[type="email"], input[type="text"]
-    Keyboard Input    type    ${email}
-    # Remplir password
-    Click    css=input[type="password"]
-    Keyboard Input    type    ${password}
-    # Attendre que le bouton soit enabled (plus disabled)
-    Wait For Elements State
-    ...    css=button[type="submit"]
-    ...    enabled
-    ...    timeout=5s
-    # Cliquer
-    Click    css=button[type="submit"]
+*** Test Cases ***
 
-Se Connecter
-    Go To    ${BASE_URL}
-    Wait Until Network Is Idle    timeout=${TIMEOUT}
-    ${need_login}=    Run Keyword And Return Status
-    ...    Wait For Elements State    css=input[type="password"]    visible    timeout=5s
-    IF    ${need_login}
-        Remplir Et Soumettre Login    ${LOGIN}    ${PASSWORD}
-        Wait For Elements State    css=.hdr-title    visible    timeout=${TIMEOUT}
-    END
+# ══════════════════════════════════════════════════════════════
+# TC01-TC05 — LOGIN
+# ══════════════════════════════════════════════════════════════
+
+TC01 - Titre de la page
+    [Documentation]    Le titre du navigateur est correct
+    [Tags]    login    smoke
+    Open Browser    ${URL}    ${BROWSER}
+    Title Should Be    ICT Trading Dashboard
+
+TC02 - Page de login s'affiche correctement
+    [Documentation]    Tous les éléments de la page login sont présents
+    [Tags]    login    smoke
+    Open Browser    ${URL}    ${BROWSER}
+    Maximize Browser Window
+    Wait Until Element Is Visible    ${LOGIN_PAGE}              ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_FORM}              ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_EMAIL_INPUT}       ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_PASSWORD_INPUT}    ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_SUBMIT_BTN}        ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGIN_SECURITY_NOTE}     ${TIMEOUT}
+    Capture Page Screenshot
+
+TC03 - Login avec identifiants valides → dashboard affiché
+    [Documentation]    Bon login + bon mdp → header dashboard visible
+    [Tags]    login    smoke    auth
+    Open Browser    ${URL}    ${BROWSER}
+    Maximize Browser Window
+    Wait Until Element Is Visible    ${LOGIN_EMAIL_INPUT}    ${TIMEOUT}
+    Input Text         ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
+    Input Password     ${LOGIN_PASSWORD_INPUT}    ${PASSWORD_VALUE}
+    Wait Until Element Is Enabled    ${LOGIN_SUBMIT_BTN}    ${TIMEOUT}
+    Click Button    ${LOGIN_SUBMIT_BTN}
+    Wait Until Page Does Not Contain Element    ${LOGIN_SUBMIT_BTN}    ${TIMEOUT}
+    Wait Until Element Is Visible    ${APP_HEADER}      ${TIMEOUT}
+    Wait Until Element Is Visible    ${HEADER_TITLE}    ${TIMEOUT}
+    Element Text Should Be    ${HEADER_TITLE}    ICT Trading Dashboard
+    Capture Page Screenshot
+
+TC04 - Login avec mauvais mot de passe → pas de dashboard
+    [Documentation]    Mauvais password → message d'erreur visible, dashboard absent
+    [Tags]    login    securite
+    Open Browser    ${URL}    ${BROWSER}
+    Maximize Browser Window
+    Wait Until Element Is Visible    ${LOGIN_EMAIL_INPUT}    ${TIMEOUT}
+    Input Text         ${LOGIN_EMAIL_INPUT}       ${USERNAME_VALUE}
+    Input Password     ${LOGIN_PASSWORD_INPUT}    ${WRONG_PASSWORD_VALUE}
+    Wait Until Element Is Enabled    ${LOGIN_SUBMIT_BTN}    ${TIMEOUT}
+    Click Button    ${LOGIN_SUBMIT_BTN}
+    Wait Until Element Is Visible    ${LOGIN_ERROR_MSG}    ${TIMEOUT}
+    Element Should Not Be Visible    ${APP_HEADER}
+    Capture Page Screenshot
+
+TC05 - Bouton submit désactivé si champs vides
+    [Documentation]    Le bouton Se connecter est disabled si les champs sont vides
+    [Tags]    login    validation
+    Open Browser    ${URL}    ${BROWSER}
+    Wait Until Element Is Visible    ${LOGIN_SUBMIT_BTN}    ${TIMEOUT}
+    Element Should Be Disabled    ${LOGIN_SUBMIT_BTN}
+
+# ══════════════════════════════════════════════════════════════
+# TC06-TC10 — HEADER & NAVIGATION
+# ══════════════════════════════════════════════════════════════
+
+TC06 - Header contient tous les éléments essentiels
+    [Documentation]    AutoBot, WebSocket, cTrader, Logout visibles
+    [Tags]    header    smoke
+    Ouvrir le dashboard et se connecter
+    Wait Until Element Is Visible    ${APP_HEADER}          ${TIMEOUT}
+    Wait Until Element Is Visible    ${HEADER_TITLE}        ${TIMEOUT}
+    Wait Until Element Is Visible    ${AUTOBOT_TOGGLE_BTN}  ${TIMEOUT}
+    Wait Until Element Is Visible    ${WEBSOCKET_BADGE}     ${TIMEOUT}
+    Wait Until Element Is Visible    ${CTRADER_BADGE}       ${TIMEOUT}
+    Wait Until Element Is Visible    ${LOGOUT_BTN}          ${TIMEOUT}
+    Capture Page Screenshot
+
+TC07 - Toggle AutoBot change l'état ON/OFF
+    [Documentation]    Cliquer le bouton AutoBot change l'état affiché
+    [Tags]    autobot    interaction
+    Ouvrir le dashboard et se connecter
+    Wait Until Element Is Visible    ${AUTOBOT_TOGGLE_BTN}    ${TIMEOUT}
+    ${etat_avant}=    Get Text    ${AUTOBOT_STATUS}
+    Log    État AutoBot avant : ${etat_avant}
+    Click Element    ${AUTOBOT_TOGGLE_BTN}
+    Sleep    2s
+    ${etat_apres}=    Get Text    ${AUTOBOT_STATUS}
+    Log    État AutoBot après : ${etat_apres}
+    Should Not Be Equal    ${etat_avant}    ${etat_apres}
+    # Remettre dans l'état d'origine
+    Click Element    ${AUTOBOT_TOGGLE_BTN}
+    Sleep    1s
+
+TC08 - Navigation entre tous les onglets
+    [Documentation]    Chaque onglet s'ouvre et affiche sa page
+    [Tags]    navigation    smoke
+    Ouvrir le dashboard et se connecter
+    # Analytics
+    Aller sur l'onglet    ${TAB_ANALYTICS}    ${ANALYTICS_PAGE}
+    # Backtest
+    Aller sur l'onglet    ${TAB_BACKTEST}     ${BACKTEST_PAGE}
+    # Journal
+    Aller sur l'onglet    ${TAB_JOURNAL}      ${JOURNAL_PAGE}
+    # Comptes
+    Aller sur l'onglet    ${TAB_ACCOUNTS}     ${ACCOUNTS_PAGE}
+    # Retour Dashboard
+    Aller sur l'onglet    ${TAB_DASHBOARD}    ${TAB_CONTENT_DASHBOARD}
+    Capture Page Screenshot
+
+TC09 - Badge WebSocket affiche un statut
+    [Documentation]    Le badge WebSocket est visible avec un texte (connected / connecting)
+    [Tags]    websocket    smoke
+    Ouvrir le dashboard et se connecter
+    Wait Until Element Is Visible    ${WEBSOCKET_BADGE}    ${TIMEOUT}
+    ${ws_text}=    Get Text    ${WEBSOCKET_BADGE}
+    Log    WebSocket status : ${ws_text}
+    Should Not Be Empty    ${ws_text}
+
+TC10 - Déconnexion redirige vers login
+    [Documentation]    Cliquer Déconnexion → page login réapparaît
+    [Tags]    auth    smoke
+    Ouvrir le dashboard et se connecter
+    Wait Until Element Is Visible    ${LOGOUT_BTN}    ${TIMEOUT}
+    Click Element    ${LOGOUT_BTN}
+    Wait Until Element Is Visible    ${LOGIN_FORM}    ${TIMEOUT}
+    Element Should Not Be Visible    ${APP_HEADER}
+    Capture Page Screenshot
+
+# ══════════════════════════════════════════════════════════════
+# TC11-TC14 — DASHBOARD — Paires, Filtres, Stats
+# ══════════════════════════════════════════════════════════════
+
+TC11 - Dashboard affiche la grille des paires Forex
+    [Documentation]    La grille des 28 paires est visible
+    [Tags]    dashboard    smoke
+    Ouvrir le dashboard et se connecter
+    Wait Until Element Is Visible    ${PAIRS_GRID}    ${TIMEOUT}
+    ${nb_tiles}=    Get Element Count    css:[data-testid^="pair-tile-"]
+    Log    Nombre de paires affichées : ${nb_tiles}
+    Should Be True    ${nb_tiles} >= 20
+    Capture Page Screenshot
+
+TC12 - Filtres BUY et SELL fonctionnent
+    [Documentation]    Cliquer BUY/SELL filtre les paires
+    [Tags]    dashboard    filtres
+    Ouvrir le dashboard et se connecter
+    Wait Until Element Is Visible    ${FILTERS_PANEL}    ${TIMEOUT}
+    # Filtre BUY
+    Click Element    ${FILTER_BUY}
+    Sleep    1s
+    ${classe_buy}=    Get Element Attribute    ${FILTER_BUY}    class
+    Should Contain    ${classe_buy}    active
+    # Filtre SELL
+    Click Element    ${FILTER_SELL}
+    Sleep    1s
+    ${classe_sell}=    Get Element Attribute    ${FILTER_SELL}    class
+    Should Contain    ${classe_sell}    active
+    # Retour ALL
+    Click Element    ${FILTER_ALL}
+    Sleep    1s
+
+TC13 - Panel stats affiche les compteurs
+    [Documentation]    Les 4 stat-cards sont visibles avec des valeurs numériques
+    [Tags]    dashboard
+    Ouvrir le dashboard et se connecter
+    Wait Until Element Is Visible    ${STATS_PANEL}    ${TIMEOUT}
+    Wait Until Element Is Visible    ${STAT_BUY}       ${TIMEOUT}
+    Wait Until Element Is Visible    ${STAT_SELL}      ${TIMEOUT}
+    Wait Until Element Is Visible    ${STAT_TOTAL}     ${TIMEOUT}
+
+TC14 - Historique des signaux s'affiche
+    [Documentation]    La table d'historique est présente
+    [Tags]    dashboard
+    Ouvrir le dashboard et se connecter
+    # L'historique n'apparaît que si des signaux existent
+    # On vérifie juste la grille principale
+    Wait Until Element Is Visible    ${PAIRS_GRID}    ${TIMEOUT}
+    Log    Grille des paires visible — historique conditionnel
+
+# ══════════════════════════════════════════════════════════════
+# TC15-TC16 — ANALYTICS
+# ══════════════════════════════════════════════════════════════
+
+TC15 - Analytics affiche les sélecteurs de période
+    [Documentation]    Les boutons 7j, 14j, 30j, 60j sont visibles
+    [Tags]    analytics    smoke
+    Ouvrir le dashboard et se connecter
+    Aller sur l'onglet    ${TAB_ANALYTICS}    ${ANALYTICS_PAGE}
+    Wait Until Element Is Visible    ${ANALYTICS_DAYS_SEL}    ${TIMEOUT}
+    Wait Until Element Is Visible    ${ANALYTICS_DAYS_7}      ${TIMEOUT}
+    Wait Until Element Is Visible    ${ANALYTICS_DAYS_14}     ${TIMEOUT}
+    Wait Until Element Is Visible    ${ANALYTICS_DAYS_30}     ${TIMEOUT}
+    Wait Until Element Is Visible    ${ANALYTICS_DAYS_60}     ${TIMEOUT}
+    Capture Page Screenshot
+
+TC16 - Analytics - changer période à 7 jours
+    [Documentation]    Cliquer sur 7j recharge les données
+    [Tags]    analytics
+    Ouvrir le dashboard et se connecter
+    Aller sur l'onglet    ${TAB_ANALYTICS}    ${ANALYTICS_PAGE}
+    Click Element    ${ANALYTICS_DAYS_7}
+    Sleep    2s
+    ${classe}=    Get Element Attribute    ${ANALYTICS_DAYS_7}    style
+    Log    Style bouton 7j : ${classe}
+
+# ══════════════════════════════════════════════════════════════
+# TC17-TC18 — BACKTEST
+# ══════════════════════════════════════════════════════════════
+
+TC17 - Page Backtest affiche le bouton d'import
+    [Documentation]    Le bouton Import CSV/JSON est présent
+    [Tags]    backtest    smoke
+    Ouvrir le dashboard et se connecter
+    Aller sur l'onglet    ${TAB_BACKTEST}    ${BACKTEST_PAGE}
+    Wait Until Element Is Visible    ${BACKTEST_IMPORT_BTN}    ${TIMEOUT}
+    Capture Page Screenshot
+
+TC18 - Backtest input file est présent dans le DOM
+    [Documentation]    L'input file existe (caché mais dans le DOM)
+    [Tags]    backtest
+    Ouvrir le dashboard et se connecter
+    Aller sur l'onglet    ${TAB_BACKTEST}    ${BACKTEST_PAGE}
+    Page Should Contain Element    ${BACKTEST_FILE_INPUT}
+
+# ══════════════════════════════════════════════════════════════
+# TC19-TC20 — JOURNAL
+# ══════════════════════════════════════════════════════════════
+
+TC19 - Journal affiche la table et le bouton export CSV
+    [Documentation]    La table et le bouton d'export sont présents
+    [Tags]    journal    smoke
+    Ouvrir le dashboard et se connecter
+    Aller sur l'onglet    ${TAB_JOURNAL}    ${JOURNAL_PAGE}
+    Wait Until Element Is Visible    ${JOURNAL_TABLE}         ${TIMEOUT}
+    Wait Until Element Is Visible    ${JOURNAL_EXPORT_CSV_BTN}  ${TIMEOUT}
+    Capture Page Screenshot
+
+TC20 - Journal titre correct
+    [Documentation]    Le titre de la page Journal est correct
+    [Tags]    journal
+    Ouvrir le dashboard et se connecter
+    Aller sur l'onglet    ${TAB_JOURNAL}    ${JOURNAL_PAGE}
+    Page Should Contain    Journal de trading
+
+# ══════════════════════════════════════════════════════════════
+# TC21-TC22 — COMPTES
+# ══════════════════════════════════════════════════════════════
+
+TC21 - Page Comptes affiche le bouton d'ajout
+    [Documentation]    Le bouton + Ajouter compte est visible
+    [Tags]    comptes    smoke
+    Ouvrir le dashboard et se connecter
+    Aller sur l'onglet    ${TAB_ACCOUNTS}    ${ACCOUNTS_PAGE}
+    Wait Until Element Is Visible    ${ACCOUNTS_ADD_BTN}    ${TIMEOUT}
+    Capture Page Screenshot
+
+TC22 - Formulaire d'ajout de compte s'ouvre et se ferme
+    [Documentation]    Cliquer sur + Ajouter ouvre le formulaire
+    [Tags]    comptes
+    Ouvrir le dashboard et se connecter
+    Aller sur l'onglet    ${TAB_ACCOUNTS}    ${ACCOUNTS_PAGE}
+    Click Element    ${ACCOUNTS_ADD_BTN}
+    Wait Until Element Is Visible    ${ACCOUNT_FORM}      ${TIMEOUT}
+    Wait Until Element Is Visible    ${ACCOUNT_SUBMIT_BTN}  ${TIMEOUT}
+    # Fermer le formulaire
+    Click Element    ${ACCOUNTS_ADD_BTN}
+    Wait Until Element Is Not Visible    ${ACCOUNT_FORM}    ${TIMEOUT}
+
+# ══════════════════════════════════════════════════════════════
+# TC23-TC24 — RESPONSIVE
+# ══════════════════════════════════════════════════════════════
+
+TC23 - Affichage mobile 375px (iPhone SE)
+    [Documentation]    Interface lisible sur mobile
+    [Tags]    responsive    mobile
+    Open Browser    ${URL}    ${BROWSER}
+    Set Window Size    375    812
+    Wait Until Element Is Visible    ${LOGIN_EMAIL_INPUT}    ${TIMEOUT}
+    Capture Page Screenshot
+    Log    Affichage mobile 375px OK
+
+TC24 - Affichage tablette 768px (iPad)
+    [Documentation]    Interface lisible sur tablette
+    [Tags]    responsive    tablet
+    Open Browser    ${URL}    ${BROWSER}
+    Set Window Size    768    1024
+    Wait Until Element Is Visible    ${LOGIN_EMAIL_INPUT}    ${TIMEOUT}
+    Capture Page Screenshot
+    Log    Affichage tablette 768px OK

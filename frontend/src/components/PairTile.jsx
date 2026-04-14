@@ -24,7 +24,7 @@ function qualLabel(quality, signal) {
   return map[quality] || quality || '—'
 }
 
-function SigBlock({ data, isLtf, onOrder }) {
+function SigBlock({ data, isLtf, onOrder, pair }) {
   if (!data) return null
   const action      = data.action     || data.direction || 'NEUTRAL'
   const prob        = data.prob       || 0
@@ -39,6 +39,7 @@ function SigBlock({ data, isLtf, onOrder }) {
   const isBuy       = action === 'BUY'
   const theme       = getTheme(action, signal)
   const a           = theme.accent
+  const blockType   = isLtf ? 'ltf' : 'htf'
 
   const fmtTime = receivedAt
     ? new Date(receivedAt).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', second:'2-digit' })
@@ -47,45 +48,81 @@ function SigBlock({ data, isLtf, onOrder }) {
   const tfLabel = isLtf ? '⚡ 15M' : signal === 'EMA200_REJECTION' ? 'EMA200' : `${tf}H`
 
   return (
-    <div className={`sig-block ${isLtf ? 'sig-block-ltf' : ''}`}>
+    <div
+      data-testid={`sig-block-${blockType}-${pair}`}
+      className={`sig-block ${isLtf ? 'sig-block-ltf' : ''}`}>
+
       {/* Row 1: TF pill + direction pill */}
       <div className="sig-row1">
-        <span className="tf-pill" style={{ color:a, borderColor:`${a}44`, background:`${a}0f` }}>
+        <span
+          data-testid={`sig-tf-pill-${blockType}-${pair}`}
+          className="tf-pill"
+          style={{ color:a, borderColor:`${a}44`, background:`${a}0f` }}>
           {tfLabel}
         </span>
-        <span className="dir-pill" style={{ color:a, borderColor:`${a}44`, background:`${a}0f` }}>
+        <span
+          data-testid={`sig-dir-pill-${blockType}-${pair}`}
+          className="dir-pill"
+          style={{ color:a, borderColor:`${a}44`, background:`${a}0f` }}>
           {isBuy ? '▲ BUY' : '▼ SELL'}
         </span>
       </div>
 
       {/* Probability */}
       <div className="prob-row">
-        <span className="prob-val" style={{ color:a }}>{prob}%</span>
-        <span className="prob-lbl" style={{ color:a }}>{qualLabel(quality, signal)}</span>
+        <span
+          data-testid={`sig-prob-${blockType}-${pair}`}
+          className="prob-val"
+          style={{ color:a }}>{prob}%</span>
+        <span
+          data-testid={`sig-quality-${blockType}-${pair}`}
+          className="prob-lbl"
+          style={{ color:a }}>{qualLabel(quality, signal)}</span>
       </div>
 
       {/* Bar */}
       <div className="sig-bar">
-        <div className="sig-bar-fill" style={{ width:`${prob}%`, background:`linear-gradient(90deg,${a}88,${a})` }}/>
+        <div
+          data-testid={`sig-bar-fill-${blockType}-${pair}`}
+          className="sig-bar-fill"
+          style={{ width:`${prob}%`, background:`linear-gradient(90deg,${a}88,${a})` }}/>
       </div>
 
       {/* Entry type */}
-      {isLtf && entry_type && <div className="entry-type">{entry_type}</div>}
+      {isLtf && entry_type && (
+        <div
+          data-testid={`sig-entry-type-${pair}`}
+          className="entry-type">{entry_type}</div>
+      )}
 
       {/* Prices */}
       {price && (
-        <div style={{ fontFamily:'var(--mono)', fontSize:10, marginBottom:7 }}>
-          <div style={{ color:'#64748b' }}>Entry <span style={{ color:'#94a3b8' }}>{price}</span></div>
-          {sl && <div>SL    <span className="price-sl">{sl}</span></div>}
-          {tp && <div>TP    <span className="price-tp">{tp}</span></div>}
+        <div
+          data-testid={`sig-prices-${blockType}-${pair}`}
+          style={{ fontFamily:'var(--mono)', fontSize:10, marginBottom:7 }}>
+          <div style={{ color:'#64748b' }}>Entry <span
+            data-testid={`sig-price-entry-${blockType}-${pair}`}
+            style={{ color:'#94a3b8' }}>{price}</span></div>
+          {sl && <div>SL    <span
+            data-testid={`sig-price-sl-${blockType}-${pair}`}
+            className="price-sl">{sl}</span></div>}
+          {tp && <div>TP    <span
+            data-testid={`sig-price-tp-${blockType}-${pair}`}
+            className="price-tp">{tp}</span></div>}
         </div>
       )}
 
-      {fmtTime && <div className="sig-time">{fmtTime}</div>}
+      {fmtTime && (
+        <div
+          data-testid={`sig-time-${blockType}-${pair}`}
+          className="sig-time">{fmtTime}</div>
+      )}
 
-      {/* Button */}
+      {/* Order button */}
       {(action === 'BUY' || action === 'SELL') && (
-        <button className="order-btn"
+        <button
+          data-testid={`order-btn-${pair}-${blockType}`}
+          className="order-btn"
           style={{ color:a, borderColor:`${a}55`, background:`${a}0d` }}
           onMouseOver={e => e.currentTarget.style.background=`${a}1f`}
           onMouseOut={e  => e.currentTarget.style.background=`${a}0d`}
@@ -111,7 +148,6 @@ export default function PairTile({ state }) {
   const ltf       = state.ltf || null
   const hasSignal = !!(htf || ltf)
 
-  // Theme from top-priority signal
   const topSignal = ltf || htf
   const theme = topSignal ? getTheme(topSignal.action || topSignal.direction, topSignal.signal) : C.none
 
@@ -121,11 +157,14 @@ export default function PairTile({ state }) {
 
   return (
     <>
-      <div className={`card ${hasSignal ? 'active ' + theme.pulse : ''}`}
+      <div
+        data-testid={`pair-tile-${pair}`}
+        className={`card ${hasSignal ? 'active ' + theme.pulse : ''}`}
         style={{
           borderColor: hasSignal ? theme.border : 'rgba(255,255,255,.06)',
           boxShadow:   hasSignal ? `0 0 20px ${theme.glow}` : 'none',
         }}>
+
         {/* Top accent line */}
         {hasSignal && (
           <div style={{ position:'absolute', top:0, left:0, right:0, height:2,
@@ -136,13 +175,19 @@ export default function PairTile({ state }) {
         {/* Header */}
         <div className="card-header">
           <div>
-            <span className="pair-name">{base}</span>
-            <span className="pair-quote">/{quote}</span>
+            <span
+              data-testid={`pair-name-${pair}`}
+              className="pair-name">{base}</span>
+            <span
+              data-testid={`pair-quote-${pair}`}
+              className="pair-quote">/{quote}</span>
           </div>
           {ltf && (
-            <span style={{ fontSize:9, fontWeight:700, color:'#f5a623',
-              background:'rgba(245,166,35,.12)', border:'1px solid rgba(245,166,35,.3)',
-              borderRadius:20, padding:'2px 6px', letterSpacing:'.5px' }}>
+            <span
+              data-testid={`pair-double-badge-${pair}`}
+              style={{ fontSize:9, fontWeight:700, color:'#f5a623',
+                background:'rgba(245,166,35,.12)', border:'1px solid rgba(245,166,35,.3)',
+                borderRadius:20, padding:'2px 6px', letterSpacing:'.5px' }}>
               ⚡ DOUBLE
             </span>
           )}
@@ -150,12 +195,16 @@ export default function PairTile({ state }) {
 
         {hasSignal ? (
           <>
-            <SigBlock data={htf} isLtf={false} onOrder={openOrder}/>
-            {ltf && <SigBlock data={ltf} isLtf={true} onOrder={openOrder}/>}
+            <SigBlock data={htf} isLtf={false} onOrder={openOrder} pair={pair}/>
+            {ltf && <SigBlock data={ltf} isLtf={true} onOrder={openOrder} pair={pair}/>}
           </>
         ) : (
-          <div className="waiting">
-            <span className="waiting-dot"/><span className="waiting-dot"/><span className="waiting-dot"/>
+          <div
+            data-testid={`pair-waiting-${pair}`}
+            className="waiting">
+            <span className="waiting-dot"/>
+            <span className="waiting-dot"/>
+            <span className="waiting-dot"/>
           </div>
         )}
       </div>

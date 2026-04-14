@@ -61,26 +61,48 @@ export default function OrderModal({ state, onClose, onConfirm }) {
   }
 
   return (
-    <div className="overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="modal" style={{ borderColor:`${accent}40` }}>
+    <div
+      data-testid="order-modal-overlay"
+      className="overlay"
+      onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div
+        data-testid="order-modal"
+        className="modal"
+        style={{ borderColor:`${accent}40` }}>
+
         {/* Header */}
-        <div className="modal-hdr" style={{ background:`${accent}08`, borderColor:`${accent}20` }}>
+        <div
+          data-testid="order-modal-header"
+          className="modal-hdr"
+          style={{ background:`${accent}08`, borderColor:`${accent}20` }}>
           <div>
-            <div className="modal-title" style={{ color:accent }}>
+            <div
+              data-testid="order-modal-title"
+              className="modal-title"
+              style={{ color:accent }}>
               {isLtf?'⚡ ':isBuy?'▲ ':'▼ '}{signal} — {pair}
               {isLtf && <span style={{fontSize:11,marginLeft:6,opacity:.7,color:accent}}>TRÈS FORT 15M</span>}
             </div>
-            <div className="modal-sub">
+            <div
+              data-testid="order-modal-subtitle"
+              className="modal-sub">
               {probability}%{entryType ? ` · ${entryType}` : ''} · Envoyer vers FTMO
             </div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button
+            data-testid="order-modal-close-btn"
+            className="modal-close"
+            onClick={onClose}>✕</button>
         </div>
 
         {!result ? (
-          <div className="modal-body">
+          <div
+            data-testid="order-modal-body"
+            className="modal-body">
             {isLtf && (
-              <div className="ltf-info">
+              <div
+                data-testid="order-ltf-info"
+                className="ltf-info">
                 ⚡ Signal 15min confirmé — SL serré, R:R optimisé
               </div>
             )}
@@ -88,59 +110,130 @@ export default function OrderModal({ state, onClose, onConfirm }) {
             <div className="field-grid">
               <div className="field">
                 <label>Entry</label>
-                <input type="number" step="any" value={form.entry} onChange={e=>upd('entry',e.target.value)}
-                  style={{borderColor:`${accent}40`}} onFocus={e=>e.target.style.borderColor=accent} onBlur={e=>e.target.style.borderColor=`${accent}40`}/>
+                <input
+                  data-testid="order-entry-input"
+                  type="number"
+                  step="any"
+                  value={form.entry}
+                  onChange={e=>upd('entry',e.target.value)}
+                  style={{borderColor:`${accent}40`}}
+                  onFocus={e=>e.target.style.borderColor=accent}
+                  onBlur={e=>e.target.style.borderColor=`${accent}40`}/>
               </div>
               <div className="field">
                 <label style={{color:accent}}>Lots</label>
-                <input type="number" step="any" value={form.lots} onChange={e=>upd('lots',e.target.value)}
+                <input
+                  data-testid="order-lots-input"
+                  type="number"
+                  step="any"
+                  value={form.lots}
+                  onChange={e=>upd('lots',e.target.value)}
                   style={{color:accent,fontWeight:700,borderColor:`${accent}40`}}
-                  onFocus={e=>e.target.style.borderColor=accent} onBlur={e=>e.target.style.borderColor=`${accent}40`}/>
+                  onFocus={e=>e.target.style.borderColor=accent}
+                  onBlur={e=>e.target.style.borderColor=`${accent}40`}/>
               </div>
               <div className="field">
                 <label style={{color:'#ff4560'}}>Stop Loss</label>
-                <input type="number" step="any" value={form.sl} onChange={e=>upd('sl',e.target.value)}
-                  style={{borderColor:'rgba(255,69,96,.3)'}} onFocus={e=>e.target.style.borderColor='#ff4560'} onBlur={e=>e.target.style.borderColor='rgba(255,69,96,.3)'}/>
+                <input
+                  data-testid="order-sl-input"
+                  type="number"
+                  step="any"
+                  value={form.sl}
+                  onChange={e=>upd('sl',e.target.value)}
+                  style={{borderColor:'rgba(255,69,96,.3)'}}
+                  onFocus={e=>e.target.style.borderColor='#ff4560'}
+                  onBlur={e=>e.target.style.borderColor='rgba(255,69,96,.3)'}/>
               </div>
               <div className="field">
                 <label style={{color:'#00d97e'}}>Take Profit</label>
-                <input type="number" step="any" value={form.tp} onChange={e=>upd('tp',e.target.value)}
-                  style={{borderColor:'rgba(0,217,126,.3)'}} onFocus={e=>e.target.style.borderColor='#00d97e'} onBlur={e=>e.target.style.borderColor='rgba(0,217,126,.3)'}/>
+                <input
+                  data-testid="order-tp-input"
+                  type="number"
+                  step="any"
+                  value={form.tp}
+                  onChange={e=>upd('tp',e.target.value)}
+                  style={{borderColor:'rgba(0,217,126,.3)'}}
+                  onFocus={e=>e.target.style.borderColor='#00d97e'}
+                  onBlur={e=>e.target.style.borderColor='rgba(0,217,126,.3)'}/>
               </div>
             </div>
 
             {!isNaN(riskUsd)&&riskUsd>0 && (
-              <div className="risk-preview">
-                <div><div className="rp-val" style={{color:'#ff4560'}}>${riskUsd.toFixed(0)}</div><div className="rp-lbl">Risque</div></div>
-                <div><div className="rp-val" style={{color:'#f5a623'}}>1:{rr}</div><div className="rp-lbl">R:R</div></div>
-                <div><div className="rp-val" style={{color:'#00d97e'}}>${gainUsd.toFixed(0)}</div><div className="rp-lbl">Gain</div></div>
+              <div
+                data-testid="order-risk-preview"
+                className="risk-preview">
+                <div>
+                  <div
+                    data-testid="order-risk-usd"
+                    className="rp-val"
+                    style={{color:'#ff4560'}}>${riskUsd.toFixed(0)}</div>
+                  <div className="rp-lbl">Risque</div>
+                </div>
+                <div>
+                  <div
+                    data-testid="order-rr"
+                    className="rp-val"
+                    style={{color:'#f5a623'}}>1:{rr}</div>
+                  <div className="rp-lbl">R:R</div>
+                </div>
+                <div>
+                  <div
+                    data-testid="order-gain-usd"
+                    className="rp-val"
+                    style={{color:'#00d97e'}}>${gainUsd.toFixed(0)}</div>
+                  <div className="rp-lbl">Gain</div>
+                </div>
               </div>
             )}
 
-            {error && <div className="error-box">{error}</div>}
+            {error && (
+              <div
+                data-testid="order-error-msg"
+                className="error-box">{error}</div>
+            )}
 
             <div className="modal-btns">
-              <button className="btn-cancel" onClick={onClose}>Annuler</button>
-              <button className="btn-confirm" disabled={loading}
-                style={{ background:accent, color: isLtf?'#000':'#000' }} onClick={submit}>
+              <button
+                data-testid="order-cancel-btn"
+                className="btn-cancel"
+                onClick={onClose}>Annuler</button>
+              <button
+                data-testid="order-confirm-btn"
+                className="btn-confirm"
+                disabled={loading}
+                style={{ background:accent, color: isLtf?'#000':'#000' }}
+                onClick={submit}>
                 {loading ? '⏳ Envoi...' : `${isBuy?'▲':'▼'} ${isLtf?'Ordre précis 15M':'Envoyer vers FTMO'}`}
               </button>
             </div>
           </div>
         ) : (
-          <div className="modal-success">
-            <div className="success-icon">{result.simulated?'🧪':'✅'}</div>
-            <div className="success-title" style={{color:result.simulated?'#f5a623':'#00d97e'}}>
+          <div
+            data-testid="order-success"
+            className="modal-success">
+            <div
+              data-testid="order-success-icon"
+              className="success-icon">{result.simulated?'🧪':'✅'}</div>
+            <div
+              data-testid="order-success-title"
+              className="success-title"
+              style={{color:result.simulated?'#f5a623':'#00d97e'}}>
               {result.simulated?'Simulation (mode test)':'Ordre exécuté sur FTMO'}
             </div>
-            <div className="success-details">
-              🎫 Position ID : <span>{result.positionId}</span><br/>
-              💱 Paire       : <span>{result.symbol}</span><br/>
-              📊 Direction   : <span style={{color:accent}}>{result.side}</span><br/>
-              📦 Lots        : <span>{result.volume}</span><br/>
-              💲 Prix exec.  : <span>{result.price}</span>
+            <div
+              data-testid="order-success-details"
+              className="success-details">
+              🎫 Position ID : <span data-testid="order-position-id">{result.positionId}</span><br/>
+              💱 Paire       : <span data-testid="order-success-pair">{result.symbol}</span><br/>
+              📊 Direction   : <span data-testid="order-success-side" style={{color:accent}}>{result.side}</span><br/>
+              📦 Lots        : <span data-testid="order-success-lots">{result.volume}</span><br/>
+              💲 Prix exec.  : <span data-testid="order-success-price">{result.price}</span>
             </div>
-            <button className="btn-confirm" style={{background:accent,color:'#000',width:'100%',padding:11,borderRadius:8,border:'none',fontWeight:700,cursor:'pointer'}} onClick={onClose}>
+            <button
+              data-testid="order-success-close-btn"
+              className="btn-confirm"
+              style={{background:accent,color:'#000',width:'100%',padding:11,borderRadius:8,border:'none',fontWeight:700,cursor:'pointer'}}
+              onClick={onClose}>
               Fermer
             </button>
           </div>
