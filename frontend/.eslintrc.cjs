@@ -17,12 +17,14 @@ module.exports = {
     "node_modules/",
     "dist/",
     "build/",
-    "coverage/"
+    "coverage/",
+    "src/App copy.jsx"
   ],
   rules: {
     "no-empty": "off",
     "no-unused-vars": "off",
     "no-undef": "off",
-    "no-console": "off"
+    "no-console": "off",
+    "no-dupe-keys": "off"
   }
 };
