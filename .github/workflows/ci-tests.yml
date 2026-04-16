@@ -12,47 +12,62 @@ on:
       - develop
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
-# ══════════════════════════════════════════════════════════════
-# JOB 1 — LINT vérifie les erreurs de synthaxes, code statique
-# ══════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════
+  # JOB 1 — LINT
+  # ══════════════════════════════════════════════════════════════
   lint:
     name: 🔍 Lint ESLint
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: npm
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
 
+      - name: Install backend deps
+        working-directory: backend
+        run: npm ci
+
       - name: Lint backend
-        run: |
-          cd backend
-          npm ci --silent
-          npx eslint . --ext .js --max-warnings 0 || true
+        working-directory: backend
+        run: npx eslint . --ext .js --max-warnings 0
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
 
       - name: Lint frontend
-        run: |
-          cd frontend
-          npm ci --silent
-          npm run lint || true
+        working-directory: frontend
+        run: npm run lint
 
-
-# ══════════════════════════════════════════════════════════════════════════════════════════
-# JOB 2 — TRIVY SCAN vérifie les si vulnerabilité HIGH ou CRITICAL dans le code ca s'arrete
-# ══════════════════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════
+  # JOB 2 — TRIVY SCAN
+  # ══════════════════════════════════════════════════════════════
   trivy-scan:
     name: 🔒 Trivy Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: lint
-    permissions:
-      contents: read
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -67,13 +82,19 @@ jobs:
           ignore-unfixed: true
           exit-code: 1
 
-# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
-# JOB 3 — AUTOMATION TESTING -> UI + API verrifications des E2E scenarios + API les plus importantes avec SeleniumLibray et RequestsLibrary
-# ══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+  # ══════════════════════════════════════════════════════════════
+  # JOB 3 — ROBOT TESTS
+  # ══════════════════════════════════════════════════════════════
   robot-tests:
-    needs: lint
+    name: 🤖 Robot Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
+    needs: lint
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+
+    env:
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PYTHONUNBUFFERED: "1"
 
     steps:
       - name: Checkout
@@ -87,6 +108,7 @@ jobs:
 
       - name: Install Robot dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install \
             robotframework==7.0 \
             robotframework-seleniumlibrary==6.3.0 \
@@ -95,16 +117,24 @@ jobs:
             robotframework-pabot==2.18.0 \
             webdriver-manager
 
-      - name: Install Chrome + Xvfb
+      - name: Install Chrome + tools
         run: |
           wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
           sudo apt-get update -qq
-          sudo apt-get install -y google-chrome-stable xvfb curl wget
+          sudo apt-get install -y google-chrome-stable curl wget
           DRIVER_PATH=$(python -c "from webdriver_manager.chrome import ChromeDriverManager; print(ChromeDriverManager().install())")
           sudo ln -sf "$DRIVER_PATH" /usr/local/bin/chromedriver
           google-chrome --version
           chromedriver --version
+
+      - name: Validate required secrets
+        env:
+          RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
+          RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
+        run: |
+          test -n "$RF_USERNAME" || (echo "Missing secret: TEST_DASHBOARD_LOGIN" && exit 1)
+          test -n "$RF_PASSWORD" || (echo "Missing secret: TEST_DASHBOARD_PASSWORD" && exit 1)
 
       - name: Prepare Robot variables
         env:
@@ -135,22 +165,23 @@ jobs:
         run: |
           docker compose -f docker-compose.ci.yml up -d --build
 
-      - name: Debug backend env
-        run: |
-          docker compose -f docker-compose.ci.yml exec -T backend sh -c 'echo "LOGIN=$DASHBOARD_LOGIN"; echo "PASS_LEN=${#DASHBOARD_PASSWORD}"'
-
       - name: Wait backend
         run: |
-          for i in $(seq 1 30); do
+          for i in $(seq 1 40); do
             if curl -sf http://127.0.0.1:3003/health > /dev/null; then
               echo "Backend ready"
               exit 0
             fi
-            echo "Waiting backend ($i/30)..."
+            echo "Waiting backend ($i/40)..."
+            docker compose -f docker-compose.ci.yml ps || true
             sleep 3
           done
-          docker compose -f docker-compose.ci.yml logs backend
+          docker compose -f docker-compose.ci.yml logs --no-color backend
           exit 1
+
+      - name: Debug backend env
+        run: |
+          docker compose -f docker-compose.ci.yml exec -T backend sh -c 'echo "LOGIN=$DASHBOARD_LOGIN"; echo "PASS_LEN=${#DASHBOARD_PASSWORD}"'
 
       - name: Debug login API backend direct
         env:
@@ -164,15 +195,16 @@ jobs:
 
       - name: Wait frontend
         run: |
-          for i in $(seq 1 30); do
+          for i in $(seq 1 40); do
             if curl -sf http://127.0.0.1:8085 > /dev/null; then
               echo "Frontend ready"
               exit 0
             fi
-            echo "Waiting frontend ($i/30)..."
+            echo "Waiting frontend ($i/40)..."
+            docker compose -f docker-compose.ci.yml ps || true
             sleep 3
           done
-          docker compose -f docker-compose.ci.yml logs frontend
+          docker compose -f docker-compose.ci.yml logs --no-color frontend
           exit 1
 
       - name: Debug login API via frontend proxy
@@ -204,11 +236,7 @@ jobs:
             tests/robot/suites/api_tests.robot
 
       - name: Run UI tests
-        env:
-          DISPLAY: :99
         run: |
-          Xvfb :99 -screen 0 1920x1080x24 >/dev/null 2>&1 &
-          sleep 2
           python -m robot \
             --nostatusrc \
             --outputdir reports/ui \
@@ -249,14 +277,15 @@ jobs:
             reports/ui/
             reports/api/
           retention-days: 30
+          if-no-files-found: warn
 
       - name: Docker logs backend
         if: always()
-        run: docker compose -f docker-compose.ci.yml logs backend
+        run: docker compose -f docker-compose.ci.yml logs --no-color backend
 
       - name: Docker logs frontend
         if: always()
-        run: docker compose -f docker-compose.ci.yml logs frontend
+        run: docker compose -f docker-compose.ci.yml logs --no-color frontend
 
       - name: Destroy CI environment
         if: always()

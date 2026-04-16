@@ -10,3 +10,4 @@ infra/terraform/terraform.tfstate*
 .env.staging
 
 tests/robot/variables_local.py
+.bak
