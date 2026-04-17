@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version à déployer (ex: v1.2.0)"
+        description: "Version à déployer (ex: v1.2.1)"
         required: true
         type: string
   workflow_run:
@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   deploy-production:
-    name: 🚀 Deploy to Production VPS
+    name: 🚀 Deploy to Production Swarm
     runs-on: ubuntu-latest
     environment: production
     if: >
@@ -29,23 +29,42 @@ jobs:
       github.event.workflow_run.conclusion == 'success'
 
     steps:
-      - name: Checkout exact built commit
-        if: ${{ github.event_name == 'workflow_run' }}
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
-          fetch-depth: 0
-
-      - name: Compute production image tags
+      - name: Resolve production version
         id: meta
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
           else
-            VERSION="$(git tag --points-at HEAD | grep '^v[0-9]' | head -n1)"
+            VERSION="${{ github.event.workflow_run.head_branch }}"
+            VERSION=""
           fi
 
-          test -n "$VERSION" || (echo "Impossible de déterminer la version à déployer" && exit 1)
+          if [ -z "$VERSION" ]; then
+            echo "version_from_workflow_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout repository for tag resolution
+        if: ${{ steps.meta.outputs.version_from_workflow_run == 'true' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Extract version tag
+        if: ${{ steps.meta.outputs.version_from_workflow_run == 'true' }}
+        id: tag
+        run: |
+          VERSION="$(git tag --points-at HEAD | grep '^v[0-9]' | head -n1)"
+          test -n "$VERSION" || (echo "Impossible de déterminer le tag de version sur ce commit" && exit 1)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Finalize image names
+        id: images
+        run: |
+          VERSION="${{ steps.meta.outputs.version || steps.tag.outputs.version }}"
+          test -n "$VERSION" || (echo "Version manquante" && exit 1)
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:$VERSION" >> "$GITHUB_OUTPUT"
@@ -58,56 +77,54 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy on VPS
+      - name: Deploy rolling update on Swarm
         run: |
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << EOF
             set -e
-            cd ~/dockerFX
-
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-            export BACKEND_IMAGE="${{ steps.meta.outputs.backend_image }}"
-            export FRONTEND_IMAGE="${{ steps.meta.outputs.frontend_image }}"
+            BACKEND_IMAGE="${{ steps.images.outputs.backend_image }}"
+            FRONTEND_IMAGE="${{ steps.images.outputs.frontend_image }}"
 
             echo "Deploy backend image: \$BACKEND_IMAGE"
             echo "Deploy frontend image: \$FRONTEND_IMAGE"
 
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d
+            docker service update \
+              --image "\$BACKEND_IMAGE" \
+              --update-parallelism 1 \
+              --update-delay 10s \
+              --with-registry-auth \
+              ict-prod_backend
 
-            echo "Waiting backend health on port 3002..."
-            for i in \$(seq 1 20); do
-              if docker compose -f docker-compose.prod.yml exec -T backend wget -qO- http://localhost:3002/health > /dev/null 2>&1; then
-                echo "✅ Backend healthy"
-                break
-              fi
-              echo "Backend attempt \$i/20..."
-              sleep 5
-            done
+            docker service update \
+              --image "\$FRONTEND_IMAGE" \
+              --update-parallelism 1 \
+              --update-delay 10s \
+              --with-registry-auth \
+              ict-prod_frontend
 
-            echo "Waiting frontend on production port 80..."
+            echo "Waiting for services to converge..."
+            sleep 15
+
+            docker service ls
+            docker service ps ict-prod_backend --no-trunc
+            docker service ps ict-prod_frontend --no-trunc
+
+            echo "Checking public frontend on port 80..."
             for i in \$(seq 1 20); do
               if curl -fsS http://localhost > /dev/null 2>&1; then
-                echo "✅ Frontend reachable on port 80"
+                echo "✅ Production frontend reachable"
                 exit 0
               fi
-              echo "Frontend attempt \$i/20..."
+              echo "Attempt \$i/20..."
               sleep 5
             done
 
-            echo "❌ Production healthcheck failed"
-            docker compose -f docker-compose.prod.yml ps
-            docker compose -f docker-compose.prod.yml logs --no-color
+            echo "❌ Production frontend healthcheck failed"
             exit 1
           EOF
 
-      - name: Show running containers
+      - name: Show service status
         run: |
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'cd ~/dockerFX && docker compose -f docker-compose.prod.yml ps'
-
-      - name: Show logs on failure
-        if: failure()
-        run: |
-          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'cd ~/dockerFX && docker compose -f docker-compose.prod.yml logs --no-color'
+            'docker service ls && docker service ps ict-prod_backend --no-trunc && docker service ps ict-prod_frontend --no-trunc'
