@@ -27,14 +27,8 @@ jobs:
       - name: Compute image tags
         id: meta
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:develop" >> "$GITHUB_OUTPUT"
-            echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend:develop" >> "$GITHUB_OUTPUT"
-          else
-            SHA_SHORT="$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)"
-            echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:develop-$SHA_SHORT" >> "$GITHUB_OUTPUT"
-            echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend:develop-$SHA_SHORT" >> "$GITHUB_OUTPUT"
-          fi
+          echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:develop" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend:develop" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH
         run: |
