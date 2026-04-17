@@ -51,13 +51,13 @@ jobs:
             echo "Deploy backend image: \$BACKEND_IMAGE"
             echo "Deploy frontend image: \$FRONTEND_IMAGE"
 
-            docker compose -f docker-compose.staging.yml pull
-            docker compose -f docker-compose.staging.yml down --remove-orphans || true
-            docker compose -f docker-compose.staging.yml up -d
+            docker compose -p staging -f docker-compose.staging.yml pull
+            docker compose -p staging -f docker-compose.staging.yml down --remove-orphans || true
+            docker compose -p staging -f docker-compose.staging.yml up -d
 
             echo "Waiting backend health on port 3002..."
             for i in \$(seq 1 20); do
-              if docker compose -f docker-compose.staging.yml exec -T backend wget -qO- http://localhost:3002/health > /dev/null 2>&1; then
+              if docker compose -p staging -f docker-compose.staging.yml exec -T backend wget -qO- http://localhost:3002/health > /dev/null 2>&1; then
                 echo "✅ Backend healthy"
                 break
               fi
@@ -76,18 +76,18 @@ jobs:
             done
 
             echo "❌ Staging healthcheck failed"
-            docker compose -f docker-compose.staging.yml ps
-            docker compose -f docker-compose.staging.yml logs --no-color
+            docker compose -p staging -f docker-compose.staging.yml ps
+            docker compose -p staging -f docker-compose.staging.yml logs --no-color
             exit 1
           EOF
 
       - name: Show running containers
         run: |
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'cd ~/dockerFX && docker compose -f docker-compose.staging.yml ps'
+            'cd ~/dockerFX && docker compose -p staging -f docker-compose.staging.yml ps'
 
       - name: Show logs on failure
         if: failure()
         run: |
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'cd ~/dockerFX && docker compose -f docker-compose.staging.yml logs --no-color'
+            'cd ~/dockerFX && docker compose -p staging -f docker-compose.staging.yml logs --no-color'
