@@ -75,7 +75,7 @@ jobs:
               sleep 5
             done
 
-            echo "❌ Staging healthcheck failed"
+            echo "❌ Staging healthcheck  failed"
             docker compose -p staging -f docker-compose.staging.yml ps
             docker compose -p staging -f docker-compose.staging.yml logs --no-color
             exit 1
