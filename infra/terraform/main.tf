@@ -20,10 +20,11 @@ terraform {
 # ════════════════════════════════════════════════════════════════
 # VARIABLES
 # ════════════════════════════════════════════════════════════════
-
+# (inchangé ici — tes variables existantes restent valides)
 
 # ════════════════════════════════════════════════════════════════
-# GÉNÉRATION — docker-stack.prod.yml (Docker SWARM production)
+# GÉNÉRATION — docker-stack.prod.yml (LEGACY Docker SWARM prod)
+# On le garde pour ne rien casser à l'existant
 # ════════════════════════════════════════════════════════════════
 
 resource "local_file" "docker_stack_prod" {
@@ -31,7 +32,7 @@ resource "local_file" "docker_stack_prod" {
   file_permission = "0644"
   content         = <<-EOT
     # ╔══════════════════════════════════════════════════════════╗
-    # ║  DOCKER SWARM STACK — PRODUCTION                        ║
+    # ║  DOCKER SWARM STACK — PRODUCTION (LEGACY)               ║
     # ║  Généré automatiquement par Terraform                   ║
     # ║  Ne pas modifier manuellement                           ║
     # ║                                                         ║
@@ -44,7 +45,6 @@ resource "local_file" "docker_stack_prod" {
 
     services:
 
-      # ── BACKEND — 1 replica scalable ───────────────────────
       backend:
         image: ${var.backend_image}:latest
         networks:
@@ -79,7 +79,6 @@ resource "local_file" "docker_stack_prod" {
           retries: 3
           start_period: 15s
 
-      # ── FRONTEND — 1 replica ────────────────────────────────
       frontend:
         image: ${var.frontend_image}:latest
         ports:
@@ -104,8 +103,6 @@ resource "local_file" "docker_stack_prod" {
             reservations:
               cpus: '0.05'
               memory: 50M
-        # Healthcheck simplifié — vérifie juste que Nginx répond
-        # sans dépendre du backend (évite l'échec DNS au démarrage)
         healthcheck:
           test: ["CMD-SHELL", "wget -qO- http://localhost/ > /dev/null 2>&1 || exit 0"]
           interval: 30s
@@ -122,6 +119,7 @@ resource "local_file" "docker_stack_prod" {
 
 # ════════════════════════════════════════════════════════════════
 # GÉNÉRATION — docker-compose.staging.yml
+# Compatible avec staging-build.yml / staging-deploy.yml
 # ════════════════════════════════════════════════════════════════
 
 resource "local_file" "docker_compose_staging" {
@@ -131,14 +129,13 @@ resource "local_file" "docker_compose_staging" {
     # ╔══════════════════════════════════════════════════════════╗
     # ║  STAGING — ICT Trading Dashboard                        ║
     # ║  Généré automatiquement par Terraform                   ║
-    # ║  Accessible sur http://${var.vps_ip}:${var.staging_port}               ║
+    # ║  Accessible sur http://${var.vps_ip}:${var.staging_port} ║
     # ╚══════════════════════════════════════════════════════════╝
 
     services:
 
       backend:
-        image: ${var.backend_image}:develop
-        container_name: forex-backend-staging
+        image: $${BACKEND_IMAGE:-${var.backend_image}:develop}
         restart: unless-stopped
         env_file: .env.staging
         expose:
@@ -159,8 +156,7 @@ resource "local_file" "docker_compose_staging" {
           - "project=${var.project_name}"
 
       frontend:
-        image: ${var.frontend_image}:develop
-        container_name: forex-frontend-staging
+        image: $${FRONTEND_IMAGE:-${var.frontend_image}:develop}
         restart: unless-stopped
         ports:
           - "${var.staging_port}:80"
@@ -177,15 +173,75 @@ resource "local_file" "docker_compose_staging" {
 
     networks:
       trading-staging:
-        driver: bridge
+        external: true
         name: trading-staging
   EOT
 }
 
 # ════════════════════════════════════════════════════════════════
-# GÉNÉRATION — frontend/nginx.conf (utilisé dans l'image Docker)
-# Pour Docker Swarm — upstream = ict-prod_backend
-# Résolution DNS dynamique via resolver Docker
+# GÉNÉRATION — docker-compose.prod.yml
+# Compatible avec production-build.yml / production-deploy.yml
+# ════════════════════════════════════════════════════════════════
+
+resource "local_file" "docker_compose_prod" {
+  filename        = "${path.module}/../../docker-compose.prod.yml"
+  file_permission = "0644"
+  content         = <<-EOT
+    # ╔══════════════════════════════════════════════════════════╗
+    # ║  PRODUCTION — ICT Trading Dashboard                     ║
+    # ║  Généré automatiquement par Terraform                   ║
+    # ║  Accessible sur http://${var.vps_ip}:${var.prod_port}   ║
+    # ╚══════════════════════════════════════════════════════════╝
+
+    services:
+
+      backend:
+        image: $${BACKEND_IMAGE:-${var.backend_image}:latest}
+        restart: unless-stopped
+        env_file: .env.prod
+        expose:
+          - "${var.backend_prod_port}"
+        environment:
+          - PORT=${var.backend_prod_port}
+          - NODE_ENV=production
+        healthcheck:
+          test: ["CMD","wget","-qO-","http://localhost:${var.backend_prod_port}/health"]
+          interval: 30s
+          timeout: 5s
+          retries: 3
+          start_period: 10s
+        networks:
+          - trading-prod
+        labels:
+          - "environment=production"
+          - "project=${var.project_name}"
+
+      frontend:
+        image: $${FRONTEND_IMAGE:-${var.frontend_image}:latest}
+        restart: unless-stopped
+        ports:
+          - "${var.prod_port}:80"
+        volumes:
+          - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+        depends_on:
+          backend:
+            condition: service_healthy
+        networks:
+          - trading-prod
+        labels:
+          - "environment=production"
+          - "project=${var.project_name}"
+
+    networks:
+      trading-prod:
+        external: true
+        name: trading-prod
+  EOT
+}
+
+# ════════════════════════════════════════════════════════════════
+# GÉNÉRATION — frontend/nginx.conf
+# PROD — utilisé dans l'image Docker / ou monté en compose prod
 # ════════════════════════════════════════════════════════════════
 
 resource "local_file" "nginx_frontend_prod" {
@@ -193,8 +249,7 @@ resource "local_file" "nginx_frontend_prod" {
   file_permission = "0644"
   content         = <<-EOT
     # ╔══════════════════════════════════════════════════════════╗
-    # ║  NGINX — Config PRODUCTION (dans l'image Docker)        ║
-    # ║  Upstream = ict-prod_backend (nom service Docker Swarm) ║
+    # ║  NGINX — Config PRODUCTION                              ║
     # ║  Généré automatiquement par Terraform                   ║
     # ╚══════════════════════════════════════════════════════════╝
 
@@ -205,17 +260,13 @@ resource "local_file" "nginx_frontend_prod" {
         root /usr/share/nginx/html;
         index index.html;
 
-        # Resolver DNS Docker interne — résolution dynamique
-        # Evite l'erreur "host not found" au démarrage de Nginx
         resolver 127.0.0.11 valid=30s ipv6=off;
         set $backend "backend:${var.backend_prod_port}";
 
-        # Frontend React (SPA)
         location / {
             try_files $uri $uri/ /index.html;
         }
 
-        # API Backend
         location /api/ {
             proxy_pass         http://$backend;
             proxy_http_version 1.1;
@@ -224,7 +275,6 @@ resource "local_file" "nginx_frontend_prod" {
             proxy_read_timeout 60s;
         }
 
-        # WebSocket
         location /ws {
             proxy_pass         http://$backend;
             proxy_http_version 1.1;
@@ -233,17 +283,14 @@ resource "local_file" "nginx_frontend_prod" {
             proxy_read_timeout 3600s;
         }
 
-        # Webhook TradingView
         location /webhook {
             proxy_pass http://$backend;
         }
 
-        # Health check
         location /health {
             proxy_pass http://$backend/health;
         }
 
-        # Cache assets statiques
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
             expires 1y;
             add_header Cache-Control "public, immutable";
@@ -256,7 +303,7 @@ resource "local_file" "nginx_frontend_prod" {
 
 # ════════════════════════════════════════════════════════════════
 # GÉNÉRATION — frontend/nginx.staging.conf
-# Pour Docker Compose staging — upstream = forex-backend-staging
+# STAGING — upstream = backend (service Compose)
 # ════════════════════════════════════════════════════════════════
 
 resource "local_file" "nginx_frontend_staging" {
@@ -265,7 +312,7 @@ resource "local_file" "nginx_frontend_staging" {
   content         = <<-EOT
     # ╔══════════════════════════════════════════════════════════╗
     # ║  NGINX — Config STAGING (montée en volume)              ║
-    # ║  Upstream = forex-backend-staging (Docker Compose)      ║
+    # ║  Upstream = backend (service Docker Compose)            ║
     # ║  Généré automatiquement par Terraform                   ║
     # ╚══════════════════════════════════════════════════════════╝
 
@@ -276,9 +323,8 @@ resource "local_file" "nginx_frontend_staging" {
         root /usr/share/nginx/html;
         index index.html;
 
-        # Resolver DNS Docker interne
         resolver 127.0.0.11 valid=30s ipv6=off;
-        set $backend_staging "forex-backend-staging:${var.backend_staging_port}";
+        set $backend_staging "backend:${var.backend_staging_port}";
 
         location / {
             try_files $uri $uri/ /index.html;
@@ -387,9 +433,10 @@ resource "local_file" "env_staging_example" {
 
 resource "null_resource" "summary" {
   triggers = {
-    stack_hash   = local_file.docker_stack_prod.content
-    staging_hash = local_file.docker_compose_staging.content
-    nginx_hash   = local_file.nginx_frontend_prod.content
+    stack_hash        = local_file.docker_stack_prod.content
+    staging_hash      = local_file.docker_compose_staging.content
+    prod_compose_hash = local_file.docker_compose_prod.content
+    nginx_hash        = local_file.nginx_frontend_prod.content
   }
 
   provisioner "local-exec" {
@@ -399,20 +446,17 @@ resource "null_resource" "summary" {
       echo "║  ✅  Terraform apply terminé                     ║"
       echo "╠══════════════════════════════════════════════════╣"
       echo "║  Fichiers générés :                              ║"
-      echo "║    docker-stack.prod.yml      (Swarm prod)       ║"
-      echo "║    docker-compose.staging.yml (Compose staging)  ║"
-      echo "║    frontend/nginx.conf        (prod Swarm)       ║"
-      echo "║    frontend/nginx.staging.conf (staging Compose) ║"
+      echo "║    docker-stack.prod.yml       (legacy Swarm)    ║"
+      echo "║    docker-compose.staging.yml  (staging Compose) ║"
+      echo "║    docker-compose.prod.yml     (prod Compose)    ║"
+      echo "║    frontend/nginx.conf         (prod Nginx)      ║"
+      echo "║    frontend/nginx.staging.conf (staging Nginx)   ║"
       echo "║    infra/ansible/inventory.yml                   ║"
       echo "║    .env.staging.example                          ║"
       echo "╠══════════════════════════════════════════════════╣"
-      echo "║  ⚠️  Rebuilder l'image frontend avant Ansible :  ║"
-      echo "║    bash scripts/build-and-push.sh main           ║"
-      echo "╠══════════════════════════════════════════════════╣"
       echo "║  Prochaine étape :                               ║"
-      echo "║    ansible-playbook \\                            ║"
-      echo "║      -i infra/ansible/inventory.yml \\            ║"
-      echo "║      infra/ansible/playbook.yml                  ║"
+      echo "║    vérifier les workflows GitHub Actions         ║"
+      echo "║    puis déployer staging / production            ║"
       echo "╚══════════════════════════════════════════════════╝"
       echo ""
     EOT
@@ -421,6 +465,7 @@ resource "null_resource" "summary" {
   depends_on = [
     local_file.docker_stack_prod,
     local_file.docker_compose_staging,
+    local_file.docker_compose_prod,
     local_file.nginx_frontend_prod,
     local_file.nginx_frontend_staging,
     local_file.ansible_inventory,
