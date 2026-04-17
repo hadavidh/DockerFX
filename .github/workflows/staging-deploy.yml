@@ -6,11 +6,9 @@ on:
     workflows: ["Build Staging"]
     types:
       - completed
-    branches:
-      - develop
 
 concurrency:
-  group: staging-deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
+  group: staging-deploy-${{ github.event.workflow_run.id || github.run_id }}
   cancel-in-progress: true
 
 permissions:
@@ -23,7 +21,10 @@ jobs:
     environment: staging
     if: >
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'develop'
+      )
 
     steps:
       - name: Compute image tags
@@ -60,6 +61,7 @@ jobs:
             echo "Deploy frontend image: \$FRONTEND_IMAGE"
 
             docker compose -f docker-compose.staging.yml pull
+            docker compose -f docker-compose.staging.yml down --remove-orphans || true
             docker compose -f docker-compose.staging.yml up -d
 
             echo "Waiting backend health on port 3002..."
