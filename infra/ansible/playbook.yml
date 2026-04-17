@@ -331,6 +331,14 @@
       ignore_errors: yes
       tags: staging
 
+    - name: Créer le réseau Docker staging
+      command: docker network create trading-staging
+      register: network_result
+      failed_when: >
+        network_result.rc != 0 and
+        'already exists' not in network_result.stderr
+      tags: staging
+
     - name: Démarrer le STAGING
       shell: |
         cd {{ project_dir }}

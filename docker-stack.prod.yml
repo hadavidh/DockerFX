@@ -1,5 +1,5 @@
 # ╔══════════════════════════════════════════════════════════╗
-# ║  DOCKER SWARM STACK — PRODUCTION                        ║
+# ║  DOCKER SWARM STACK — PRODUCTION (LEGACY)               ║
 # ║  Généré automatiquement par Terraform                   ║
 # ║  Ne pas modifier manuellement                           ║
 # ║                                                         ║
@@ -12,7 +12,6 @@
 
 services:
 
-  # ── BACKEND — 1 replica scalable ───────────────────────
   backend:
     image: dave67000/ict-trading-backend:latest
     networks:
@@ -47,7 +46,6 @@ services:
       retries: 3
       start_period: 15s
 
-  # ── FRONTEND — 1 replica ────────────────────────────────
   frontend:
     image: dave67000/ict-trading-frontend:latest
     ports:
@@ -72,8 +70,6 @@ services:
         reservations:
           cpus: '0.05'
           memory: 50M
-    # Healthcheck simplifié — vérifie juste que Nginx répond
-    # sans dépendre du backend (évite l'échec DNS au démarrage)
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost/ > /dev/null 2>&1 || exit 0"]
       interval: 30s
