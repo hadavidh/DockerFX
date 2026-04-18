@@ -388,38 +388,70 @@ async function placeAutoOrder(entry, d, stratId) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// WEBHOOK
+// WEBHOOK — FIX TIMEOUT TRADINGVIEW
 // ══════════════════════════════════════════════════════════════════
-app.post('/webhook', async (req, res) => {
+// PROBLÈME : TradingView coupe la connexion après ~3 secondes si
+//            le serveur ne répond pas. L'ancien handler était async
+//            et attendait Telegram + cTrader avant de répondre.
+//
+// SOLUTION : handler synchrone qui répond 200 OK immédiatement,
+//            puis délègue tout le traitement à setImmediate().
+//            setImmediate() s'exécute après que la réponse HTTP
+//            soit envoyée, sans bloquer l'event loop.
+// ══════════════════════════════════════════════════════════════════
+app.post('/webhook', (req, res) => {        // ← plus de "async" ici
   const d = req.body
-  if (!d.pair || !d.action) return res.status(400).json({ error:'pair et action requis' })
-  const result = SM.receiveSignal(d)
-  if (!result) return res.status(400).json({ error:'Signal invalide' })
-  const { entry, stratId } = result
-  const strat = SM.getStrategy(stratId)
 
-  const active = SM.getActiveStrategy()
-  if (stratId === active.id) broadcast({ type:'signal', state:SM.getPairStates(stratId)[entry.pair], stratId })
-  broadcast({ type:'new_signal', entry, stratId })
-  await sendTelegram(entry, strat?.name)
-
-  const isAutoOk = d.auto_ok === true
-  const isICT    = stratId==='ICT_AutoBot_v1' && entry.signal==='SIGNAL_TRES_FORT_15M'
-  const isNEXUS  = stratId==='NEXUS_Pro_v1'   && (entry.signal==='NEXUS_TREND_BULL'||entry.signal==='NEXUS_TREND_BEAR')
-
-  if ((isICT||isNEXUS) && isAutoOk) {
-    const stratAM = getStratAutoMode(stratId)
-    // Vérification AutoMode : global ET par stratégie
-    if (!globalAutoMode || !stratAM.enabled) {
-      const reason = !globalAutoMode ? 'AutoMode global OFF' : `${stratId} AutoMode OFF`
-      log.warn(`[AutoBot] Ordre ignoré — ${reason} (${entry.action} ${entry.pair})`)
-      await sendTelegramRaw(`🔴 *ORDRE IGNORÉ* — ${reason}\n${entry.action} ${entry.pair}`)
-      return res.json({ ok:true, autoOrder:false, reason })
-    }
-    await placeAutoOrder(entry, d, stratId)
+  // Validation synchrone rapide (< 1ms)
+  if (!d.pair || !d.action) {
+    return res.status(400).json({ error: 'pair et action requis' })
   }
 
-  res.json({ ok:true, pair:entry.pair, action:entry.action, stratId })
+  const result = SM.receiveSignal(d)
+  if (!result) {
+    return res.status(400).json({ error: 'Signal invalide' })
+  }
+
+  // ✅ RÉPONSE IMMÉDIATE — TradingView reçoit 200 OK en < 50ms
+  res.json({ ok: true, pair: d.pair, action: d.action, received: true })
+
+  // ✅ TRAITEMENT EN ARRIÈRE-PLAN — après envoi de la réponse HTTP
+  setImmediate(async () => {
+    try {
+      const { entry, stratId } = result
+      const strat  = SM.getStrategy(stratId)
+      const active = SM.getActiveStrategy()
+
+      // Broadcast WebSocket (local, instantané)
+      if (stratId === active.id) {
+        broadcast({ type: 'signal', state: SM.getPairStates(stratId)[entry.pair], stratId })
+      }
+      broadcast({ type: 'new_signal', entry, stratId })
+
+      // Telegram (réseau externe — ne bloque plus TradingView)
+      await sendTelegram(entry, strat?.name)
+
+      // AutoBot — placement d'ordre si conditions réunies
+      const isAutoOk = d.auto_ok === true
+      const isICT    = stratId === 'ICT_AutoBot_v1' && entry.signal === 'SIGNAL_TRES_FORT_15M'
+      const isNEXUS  = stratId === 'NEXUS_Pro_v1'   && (entry.signal === 'NEXUS_TREND_BULL' || entry.signal === 'NEXUS_TREND_BEAR')
+
+      if ((isICT || isNEXUS) && isAutoOk) {
+        const stratAM = getStratAutoMode(stratId)
+
+        if (!globalAutoMode || !stratAM.enabled) {
+          const reason = !globalAutoMode ? 'AutoMode global OFF' : `${stratId} AutoMode OFF`
+          log.warn(`[AutoBot] Ordre ignoré — ${reason} (${entry.action} ${entry.pair})`)
+          await sendTelegramRaw(`🔴 *ORDRE IGNORÉ* — ${reason}\n${entry.action} ${entry.pair}`)
+          return
+        }
+
+        await placeAutoOrder(entry, d, stratId)
+      }
+    } catch (err) {
+      log.error('[Webhook] Erreur traitement arrière-plan:', err.message)
+    }
+  })
 })
 
 // ══════════════════════════════════════════════════════════════════
@@ -522,9 +554,6 @@ app.get('/api/drawdown', async (_, res) => {
 // ══════════════════════════════════════════════════════════════════
 // API BACKTESTING — Import résultats TradingView
 // ══════════════════════════════════════════════════════════════════
-// TradingView Strategy Tester peut exporter en CSV ou JSON
-// On parse les colonnes clés : Date, Profit, Drawdown, etc.
-
 app.post('/api/backtest/import', upload.single('file'), (req, res) => {
   try {
     const content = req.file?.buffer?.toString('utf8') || ''
@@ -561,13 +590,11 @@ function parseBacktestCSV(csv) {
 
 function parseBacktestJSON(json) {
   const data = JSON.parse(json)
-  // Support format TradingView export JSON
   if (data.trades) return buildBacktestResult(data.trades, Object.keys(data.trades[0] || {}))
   return data
 }
 
 function buildBacktestResult(rows) {
-  // Colonnes TradingView Strategy Tester
   const tradeList = rows.map(r => ({
     date      : r['date/time'] || r['date'] || '',
     type      : r['type']      || '',
@@ -579,7 +606,6 @@ function buildBacktestResult(rows) {
     runup     : parseFloat(r['run-up']   || '0') || 0,
   })).filter(t => t.date)
 
-  // Calcul des métriques
   const profits = tradeList.map(t => t.profit)
   const wins    = profits.filter(p => p > 0)
   const losses  = profits.filter(p => p < 0)
@@ -587,14 +613,12 @@ function buildBacktestResult(rows) {
   const grossP  = wins.reduce((s, p) => s + p, 0)
   const grossL  = Math.abs(losses.reduce((s, p) => s + p, 0))
 
-  // Courbe d'équité
   let equity = 0
   const equityCurve = tradeList.map(t => {
     equity += t.profit
     return { date: t.date.slice(0, 10), equity: Math.round(equity * 100) / 100, trade: t.profit }
   })
 
-  // Drawdown max
   let peak = 0, maxDD = 0
   for (const p of equityCurve) {
     if (p.equity > peak) peak = p.equity
