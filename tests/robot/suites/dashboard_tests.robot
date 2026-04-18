@@ -17,7 +17,7 @@ TC01 - Titre de la page
     [Documentation]    Le titre de l'application web s'affiche
     [Tags]    login    securite
     Open Browser    ${URL}    ${BROWSER}
-    Title Should Be    ICT Trading Dashboard
+    Title Should Be    Docker FX Dashboard
 
 TC02 - Login valide affiche le dashboard
     [Documentation]    La page de login charge correctement avec bon login/mot de passe
