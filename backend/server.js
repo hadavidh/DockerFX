@@ -809,10 +809,50 @@ app.post('/api/order', async (req, res) => {
 })
 
 app.get('/api/test', async (req, res) => {
-  const s=req.query.strategy||SM.getActiveStrategy().id
-  for(const t of [{pair:'EURUSD',action:'BUY',price:'1.08450',sl:'1.07920',tp:'1.09180',tp_reel:'1.09180',prob:'82',quality:'EXCELLENT',tf:'60',signal:'NEXUS_TREND_BULL',strategy:s,auto_ok:true,rr_reel:'2.1',score:82}])SM.receiveSignal(t)
-  const a=SM.getActiveStrategy();broadcast({type:'init',states:SM.getPairStates(a.id),history:SM.getHistory(a.id,20),strategies:SM.getStrategies(),activeStrat:a,autoMode:globalAutoMode})
-  res.json({ok:true})
+  const s = req.query.strategy || SM.getActiveStrategy().id
+  for (const t of [
+    // Signal EURUSD BUY (original)
+    {
+      pair      : 'EURUSD',
+      strategy  : s,
+      tf        : '60',
+      action    : 'BUY',
+      price     : '1.08450',
+      sl        : '1.07920',
+      tp        : '1.09180',
+      tp_reel   : '1.09180',
+      prob      : '82',
+      quality   : 'EXCELLENT',
+      signal    : 'NEXUS_TREND_BULL',
+      auto_ok   : true,
+      rr_reel   : '2.1',
+      score     : 82,
+    },
+    // Signal EURCAD BUY (données réelles screenshot)
+    {
+      pair      : 'EURCAD',
+      strategy  : s,
+      tf        : '60',
+      action    : 'BUY',
+      price     : '1.62006',
+      sl        : '1.61853',
+      tp        : '1.62324',
+      tp_reel   : '1.62197',
+      rr_reel   : '2.08',
+      score     : 84,
+      auto_ok   : true,
+      prob      : '84',
+      quality   : 'EXCELLENT',
+      signal    : 'NEXUS_TREND_BULL',
+      adx       : 39,
+      rsi       : 70,
+      entry_type: '1H_4H_Hybrid',
+    },
+  ]) SM.receiveSignal(t)
+
+  const a = SM.getActiveStrategy()
+  broadcast({ type:'init', states:SM.getPairStates(a.id), history:SM.getHistory(a.id,20), strategies:SM.getStrategies(), activeStrat:a, autoMode:globalAutoMode })
+  res.json({ ok: true })
 })
 
 app.get('/health', (_, res) => {
