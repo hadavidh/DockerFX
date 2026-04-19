@@ -160,6 +160,15 @@
         group: ubuntu
       tags: dirs
 
+    - name: Créer le dossier frontend
+      file:
+        path: "{{ project_dir }}/frontend"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+      tags: dirs
+
     # ════════════════════════════════════════════════════════════
     # 5. COPIE DES FICHIERS DE CONFIG (générés par Terraform)
     # ════════════════════════════════════════════════════════════
@@ -198,7 +207,6 @@
         owner: ubuntu
         group: ubuntu
         mode:  '0644'
-      ignore_errors: yes
       tags: config
 
     # ════════════════════════════════════════════════════════════
@@ -331,9 +339,24 @@
       ignore_errors: yes
       tags: staging
 
-    - name: Démarrer le STAGING
+    - name: Vérifier si le réseau Docker trading-staging existe
+      shell: docker network inspect trading-staging >/dev/null 2>&1
+      register: staging_network_check
+      failed_when: false
+      changed_when: false
+      become_user: ubuntu
+      tags: staging
+
+    - name: Créer le réseau Docker trading-staging si absent
+      shell: docker network create --driver bridge trading-staging
+      when: staging_network_check.rc != 0
+      become_user: ubuntu
+      tags: staging
+
+    - name: Redémarrer proprement le STAGING
       shell: |
         cd {{ project_dir }}
+        docker compose -p staging -f docker-compose.staging.yml down --remove-orphans || true
         docker compose -p staging -f docker-compose.staging.yml up -d
       become_user: ubuntu
       tags: staging

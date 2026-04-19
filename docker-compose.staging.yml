@@ -1,14 +1,13 @@
 # ╔══════════════════════════════════════════════════════════╗
 # ║  STAGING — ICT Trading Dashboard                        ║
 # ║  Généré automatiquement par Terraform                   ║
-# ║  Accessible sur http://135.125.196.204:8080               ║
+# ║  Accessible sur http://135.125.196.204:8080 ║
 # ╚══════════════════════════════════════════════════════════╝
 
 services:
 
   backend:
-    image: dave67000/ict-trading-backend:develop
-    container_name: forex-backend-staging
+    image: ${BACKEND_IMAGE:-dave67000/ict-trading-backend:develop}
     restart: unless-stopped
     env_file: .env.staging
     expose:
@@ -29,8 +28,7 @@ services:
       - "project=ict-trading"
 
   frontend:
-    image: dave67000/ict-trading-frontend:develop
-    container_name: forex-frontend-staging
+    image: ${FRONTEND_IMAGE:-dave67000/ict-trading-frontend:develop}
     restart: unless-stopped
     ports:
       - "8080:80"
@@ -47,5 +45,5 @@ services:
 
 networks:
   trading-staging:
-    driver: bridge
+    external: true
     name: trading-staging

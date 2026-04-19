@@ -382,11 +382,10 @@ if [ "$SKIP_BUILD" = false ] && [ "$SWARM_ONLY" = false ] && [ "$STAGING_ONLY" =
     "$PROJECT_DIR/frontend/" 2>&1 | tail -3
   print_ok "Frontend buildé"
 
-  # Taille des images
+  # Taille des images (latest seulement à ce stade)
   echo ""
-  print_info "Taille des images :"
-  docker images --format '{{.Repository}}:{{.Tag}}	{{.Size}}' | grep "dave67000/ict-trading" | grep "latest" | \
-    awk '{printf "     %-50s %s\n", $1":"$2, $7" "$8}'
+  print_info "Taille des images locales juste après build :"
+  docker images --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}' | grep "dave67000/ict-trading" | grep "latest" || true
 
   # Push latest
   print_step "Push backend:latest vers DockerHub..."
@@ -406,6 +405,10 @@ if [ "$SKIP_BUILD" = false ] && [ "$SWARM_ONLY" = false ] && [ "$STAGING_ONLY" =
   docker push ${DOCKERHUB_USER}/ict-trading-backend:develop 2>&1 | tail -1
   docker push ${DOCKERHUB_USER}/ict-trading-frontend:develop 2>&1 | tail -1
   print_ok "Images :develop pushées"
+
+  echo ""
+  print_info "Tags locaux backend/frontend après tag staging :"
+  docker images --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}' | grep "dave67000/ict-trading" | grep -E '(latest|develop)' || true
 
 else
   if [ "$SKIP_BUILD" = true ]; then
@@ -490,12 +493,10 @@ echo ""
 echo -e "${WHITE}  🌐 Health checks HTTP :${NC}"
 echo -e "${CYAN}  ─────────────────────────────────────────────────────${NC}"
 
-if curl -sf --max-time 5 http://localhost/health &>/dev/null; then
-  UPTIME=$(curl -s http://localhost/health | \
-    python3 -c "import json,sys;d=json.load(sys.stdin);print(str(round(d.get('uptime',0)))+'s')" 2>/dev/null || echo "OK")
-  print_ok "Production   http://localhost        → uptime $UPTIME"
+if curl -4 -sf --connect-timeout 3 --max-time 5 http://127.0.0.1/ &>/dev/null; then
+  print_ok "Production   http://localhost/       → OK"
 else
-  print_error "Production   http://localhost        → KO"
+  print_error "Production   http://localhost/       → KO"
 fi
 
 if curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then
@@ -519,7 +520,7 @@ df -h / | tail -1 | \
 echo ""
 echo -e "${WHITE}  🔁 Détail des replicas Swarm :${NC}"
 echo -e "${CYAN}  ─────────────────────────────────────────────────────${NC}"
-for SERVICE in backend ict-prod_frontend; do
+for SERVICE in ict-prod_backend ict-prod_frontend; do
   REPLICAS=$(docker service ls --filter "name=$SERVICE" \
     --format "{{.Replicas}}" 2>/dev/null || echo "N/A")
   if echo "$REPLICAS" | grep -qE "^[1-9]/[1-9]"; then
@@ -545,10 +546,10 @@ echo -e "  ${WHITE}🔵 Staging     (Compose):${NC} http://135.125.196.204:8080"
 echo ""
 echo -e "  ${WHITE}Commandes utiles :${NC}"
 echo -e "  ${CYAN}  docker service ls${NC}                           état des services Swarm"
-echo -e "  ${CYAN}  docker service scale backend=3${NC}     scaler le backend"
-echo -e "  ${CYAN}  docker service logs -f backend${NC}     logs production"
+echo -e "  ${CYAN}  docker service scale ict-prod_backend=3${NC}   scaler le backend prod"
+echo -e "  ${CYAN}  docker service logs -f ict-prod_backend${NC}   logs backend prod"
 echo -e "  ${CYAN}  docker logs -f forex-backend-staging${NC}        logs staging"
-echo -e "  ${CYAN}  docker service rollback backend${NC}    rollback prod"
+echo -e "  ${CYAN}  docker service rollback ict-prod_backend${NC}  rollback backend prod"
 echo ""
 echo -e "  ${WHITE}Redéployer :${NC}"
 echo -e "  ${CYAN}  bash scripts/deploy-full.sh --skip-build${NC}    sans rebuild"
