@@ -450,7 +450,7 @@ class CTraderService {
   }
 
   // ══════════════════════════════════════════════════════════════
-  // placeOrder — FIX : validation volume avant envoi protobuf
+  // placeOrder —          FIX : validation volume avant envoi protobuf
   // ══════════════════════════════════════════════════════════════
   // PROBLÈME : cTrader API retourne "Message missing required
   // fields: volume" si le champ volume est 0 ou NaN. Protobuf
