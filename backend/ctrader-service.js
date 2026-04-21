@@ -181,11 +181,9 @@ class CTraderService {
     this.appAuthed         = false
     this.acctAuthed        = false
     this.msgId             = 1
-    // Initialise le cache symboles avec la map hardcodée
-    // → aucun appel API nécessaire pour les 28 paires standard
     this.symbolCache       = new Map(Object.entries(SYMBOL_ID_MAP))
     this.symbolNameMap     = new Map(Object.entries(SYMBOL_ID_MAP).map(([k,v])=>[v,k]))
-    this._symbolsFetched   = false   // true si on a réussi à récupérer via API
+    this._symbolsFetched   = false
     this._listeners        = []
     this._heartbeat        = null
     this._reconnTimer      = null
@@ -283,15 +281,12 @@ class CTraderService {
               const code = msg.payload.errorCode || '?'
               const desc = msg.payload.description || ''
 
-              // ── Erreurs à ignorer silencieusement ─────────────
               if (SILENT_ERRORS.has(code)) {
-                // On log en debug uniquement, pas en ERROR
                 this.log(`[cTrader] ⚠️ Ignoré [${code}] ${desc}`)
               } else {
                 this.log(`[cTrader] ❌ [${code}] ${desc}`)
               }
 
-              // Token expiré → refresh automatique
               if (code === 'CH_ACCESS_TOKEN_INVALID' || code === 'OA_AUTH_TOKEN_EXPIRED') {
                 this.refreshAccessToken()
               }
@@ -347,23 +342,18 @@ class CTraderService {
     this.acctAuthed = true
     this.log('[cTrader] Compte authentifié ✅ — Prêt à trader')
 
-    // Tentative de récupération des vrais IDs — optionnelle, pas bloquante
-    // Si l'API ne supporte pas SymbolsList, on garde la map hardcodée
     this._tryFetchSymbols()
   }
 
-  // ── Fetch symbols — non bloquant, silencieux si non supporté ──
   async _tryFetchSymbols() {
     if (this._symbolsFetched) return
     try {
       this._send(TYPES.SYMBOLS_REQ, { ctidTraderAccountId: this.accountId })
-      // Timeout court — si pas de réponse en 5s, on garde le hardcode
       const res = await Promise.race([
         this._waitForOnce(TYPES.SYMBOLS_RES),
         new Promise((_,rej) => setTimeout(()=>rej(new Error('timeout')), 5000)),
       ])
       if (res.symbol?.length > 0) {
-        // Merge : les IDs API ont priorité sur le hardcode
         for (const s of res.symbol) {
           if (s.symbolName) {
             const name = s.symbolName.toUpperCase().replace(/[^A-Z]/g,'')
@@ -375,9 +365,8 @@ class CTraderService {
         this.log(`[cTrader] SymbolsList reçue — ${res.symbol.length} symboles`)
       }
     } catch {
-      // Silencieux — FTMO ne supporte pas cette requête, on reste sur le hardcode
       this.log('[cTrader] SymbolsList non disponible — utilisation de la map hardcodée (28 paires Forex OK)')
-      this._symbolsFetched = true  // évite les retentatives
+      this._symbolsFetched = true
     }
   }
 
@@ -409,7 +398,6 @@ class CTraderService {
         const side  = pos.tradeData?.tradeSide === 1 ? 'BUY' : 'SELL'
         const lots  = (pos.tradeData?.volume || 0) / 100000
         const symId = pos.tradeData?.symbolId
-        // Résolution nom depuis map (hardcodé ou API)
         const symbol = this.symbolNameMap.get(symId) || `ID_${symId}`
         return {
           positionId : pos.positionId,
@@ -454,7 +442,6 @@ class CTraderService {
   // ── Résolution symbole → ID ───────────────────────────────────
   _getSymbolId(sym) {
     const name = sym.replace(/^[A-Z]+:/,'').toUpperCase().replace(/[^A-Z]/g,'')
-    // Cherche dans le cache (hardcodé + éventuellement API)
     const id = this.symbolCache.get(name)
     if (!id) {
       this.log(`[cTrader] ⚠️ Symbole non trouvé: ${name} — vérifier SYMBOL_ID_MAP`)
@@ -462,24 +449,41 @@ class CTraderService {
     return id || null
   }
 
-  // ── Place order ───────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════
+  // placeOrder — FIX : validation volume avant envoi protobuf
+  // ══════════════════════════════════════════════════════════════
+  // PROBLÈME : cTrader API retourne "Message missing required
+  // fields: volume" si le champ volume est 0 ou NaN. Protobuf
+  // considère 0 comme "non fourni" pour un champ int64 required.
+  //
+  // SOLUTION : valider et logger volumeUnits avant d'envoyer.
+  // Si le volume est invalide, on throw une erreur explicite
+  // plutôt que laisser cTrader répondre avec un message cryptique.
+  // ══════════════════════════════════════════════════════════════
   async placeOrder({ symbol, side, volume, stopLoss, takeProfit, comment }) {
     if (!this.isReady) throw new Error('cTrader non prêt')
+
     const symbolId = this._getSymbolId(symbol)
     if (!symbolId)  throw new Error(`Symbole inconnu: ${symbol} — pas dans la map hardcodée`)
+
+    // ✅ FIX — Conversion lots → unités avec validation explicite
+    const volumeUnits = Math.round(parseFloat(volume) * 100000)
+    if (!volumeUnits || volumeUnits <= 0 || isNaN(volumeUnits)) {
+      throw new Error(`Volume invalide: ${volume} lots → ${volumeUnits} unités. Vérifier calcLotsDynamic().`)
+    }
 
     const payload = {
       ctidTraderAccountId: this.accountId,
       symbolId,
       orderType: 1,
       tradeSide: side === 'BUY' ? 1 : 2,
-      volume   : Math.round(parseFloat(volume) * 100000),
+      volume   : volumeUnits,
       comment  : comment || `ICT ${side} ${symbol}`,
     }
     if (stopLoss   && parseFloat(stopLoss)   > 0) payload.stopLoss   = parseFloat(stopLoss)
     if (takeProfit && parseFloat(takeProfit) > 0) payload.takeProfit = parseFloat(takeProfit)
 
-    this.log(`[cTrader] NewOrderReq: ${side} ${volume}L ${symbol} (symbolId=${symbolId})`)
+    this.log(`[cTrader] NewOrderReq: ${side} ${volume}L (${volumeUnits} units) ${symbol} (symbolId=${symbolId})`)
     this._send(TYPES.NEW_ORDER_REQ, payload)
 
     return new Promise((resolve, reject) => {
@@ -510,14 +514,12 @@ class CTraderService {
     return () => { this._listeners = this._listeners.filter(l => l !== e) }
   }
 
-  // waitFor avec rejection sur erreur — pour les appels critiques
   _waitFor(type, timeout = 12000) {
     return new Promise((resolve, reject) => {
       const timer  = setTimeout(()=>{ off(); offErr(); reject(new Error(`Timeout payloadType=${type}`)) }, timeout)
       const off    = this._on(type, p => { clearTimeout(timer); off(); offErr(); resolve(p) })
       const offErr = this._on(TYPES.ERROR_RES, p => {
         const code = p.errorCode || '?'
-        // Ne pas rejeter pour les erreurs ignorables
         if (SILENT_ERRORS.has(code)) return
         clearTimeout(timer); off(); offErr()
         reject(new Error(`[${code}] ${p.description||'API error'}`))
@@ -525,7 +527,6 @@ class CTraderService {
     })
   }
 
-  // waitForOnce — sans rejection sur erreur (pour _tryFetchSymbols)
   _waitForOnce(type) {
     return new Promise((resolve, reject) => {
       const off = this._on(type, p => { off(); resolve(p) })

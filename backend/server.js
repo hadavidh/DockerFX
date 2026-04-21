@@ -48,7 +48,6 @@ log.info(`[Boot] ${SM.getStrategies().length} stratégies | ${JM.entries.length}
 // ══════════════════════════════════════════════════════════════════
 // AUTOMODE PAR STRATÉGIE
 // ══════════════════════════════════════════════════════════════════
-// Map stratId → { enabled: bool, reason: string }
 const strategyAutoModes = new Map()
 
 function getStratAutoMode(stratId) {
@@ -64,14 +63,13 @@ function setStratAutoMode(stratId, enabled, reason = null) {
   log.info(`[StratAutoMode] ${stratId}: ${enabled ? '🟢 ON' : '🔴 OFF'}${reason ? ` (${reason})` : ''}`)
 }
 
-// AutoMode global (fallback)
 let globalAutoMode = true
 
 // ══════════════════════════════════════════════════════════════════
 // MULTI-COMPTE cTrader
 // ══════════════════════════════════════════════════════════════════
-const ctraderInstances = new Map()   // accountId → CTraderService instance
-let activeCtrader = null             // instance active
+const ctraderInstances = new Map()
+let activeCtrader = null
 
 function createCTraderForAccount(acc) {
   return new CTrader({
@@ -89,7 +87,6 @@ async function connectAccount(accId) {
   const acc = AM.getRaw(accId)
   if (!acc || !acc.clientId || !acc.token) return null
 
-  // Déconnecter l'ancienne instance si existe
   if (ctraderInstances.has(accId)) {
     ctraderInstances.get(accId).disconnect()
   }
@@ -97,7 +94,6 @@ async function connectAccount(accId) {
   const instance = createCTraderForAccount(acc)
   ctraderInstances.set(accId, instance)
 
-  // Hook refresh token → sauvegarder dans AccountManager
   const origRefresh = instance.refreshAccessToken.bind(instance)
   instance.refreshAccessToken = async function() {
     const ok = await origRefresh()
@@ -121,7 +117,6 @@ async function connectAccount(accId) {
   }
 }
 
-// Connecter tous les comptes au démarrage
 ;(async () => {
   for (const acc of AM.accounts) {
     if (!acc.clientId || !acc.token) continue
@@ -143,7 +138,6 @@ const ddMonitor = new DrawdownMonitor({
     broadcast({ type: 'drawdown_alert', alertType: type, ...data })
 
     if (type === 'daily_stop') {
-      // Arrêt forcé de TOUS les AutoModes
       globalAutoMode = false
       for (const strat of SM.getStrategies()) {
         setStratAutoMode(strat.id, false, 'Drawdown journalier max atteint')
@@ -154,7 +148,6 @@ const ddMonitor = new DrawdownMonitor({
   },
 })
 
-// Vérification drawdown toutes les 5 minutes
 setInterval(async () => {
   const ct = getActiveInstance()
   if (!ct?.isReady) return
@@ -358,7 +351,10 @@ async function placeAutoOrder(entry, d, stratId) {
     return null
   }
 
+  // ✅ FIX — Log du calcul de lots pour diagnostiquer les erreurs volume
   const lots = await calcLotsDynamic(entry.price, entry.sl, pair)
+  log.info(`[AutoBot] Calcul lots: ${lots}L | pair:${pair} | entry:${entry.price} | sl:${entry.sl} | units:${Math.round(lots*100000)}`)
+
   const tp   = entry.tp_reel || entry.tp
   const acc  = AM.getActive()
 
@@ -382,6 +378,7 @@ async function placeAutoOrder(entry, d, stratId) {
     broadcast({ type:'auto_order', simulated:false, positionId:r.positionId, pair, action, lots, price:r.price, stratId, account:acc?.name })
     return r
   } catch(e) {
+    log.error(`[AutoBot] Erreur placeOrder: ${e.message} | pair:${pair} | lots:${lots} | entry:${entry.price} | sl:${entry.sl}`)
     await sendTelegramRaw(`❌ *ERREUR* — ${pair}\n\`${e.message}\``)
     throw e
   }
@@ -390,19 +387,9 @@ async function placeAutoOrder(entry, d, stratId) {
 // ══════════════════════════════════════════════════════════════════
 // WEBHOOK — FIX TIMEOUT TRADINGVIEW
 // ══════════════════════════════════════════════════════════════════
-// PROBLÈME : TradingView coupe la connexion après ~3 secondes si
-//            le serveur ne répond pas. L'ancien handler était async
-//            et attendait Telegram + cTrader avant de répondre.
-//
-// SOLUTION : handler synchrone qui répond 200 OK immédiatement,
-//            puis délègue tout le traitement à setImmediate().
-//            setImmediate() s'exécute après que la réponse HTTP
-//            soit envoyée, sans bloquer l'event loop.
-// ══════════════════════════════════════════════════════════════════
-app.post('/webhook', (req, res) => {        // ← plus de "async" ici
+app.post('/webhook', (req, res) => {
   const d = req.body
 
-  // Validation synchrone rapide (< 1ms)
   if (!d.pair || !d.action) {
     return res.status(400).json({ error: 'pair et action requis' })
   }
@@ -412,26 +399,21 @@ app.post('/webhook', (req, res) => {        // ← plus de "async" ici
     return res.status(400).json({ error: 'Signal invalide' })
   }
 
-  // ✅ RÉPONSE IMMÉDIATE — TradingView reçoit 200 OK en < 50ms
   res.json({ ok: true, pair: d.pair, action: d.action, received: true })
 
-  // ✅ TRAITEMENT EN ARRIÈRE-PLAN — après envoi de la réponse HTTP
   setImmediate(async () => {
     try {
       const { entry, stratId } = result
       const strat  = SM.getStrategy(stratId)
       const active = SM.getActiveStrategy()
 
-      // Broadcast WebSocket (local, instantané)
       if (stratId === active.id) {
         broadcast({ type: 'signal', state: SM.getPairStates(stratId)[entry.pair], stratId })
       }
       broadcast({ type: 'new_signal', entry, stratId })
 
-      // Telegram (réseau externe — ne bloque plus TradingView)
       await sendTelegram(entry, strat?.name)
 
-      // AutoBot — placement d'ordre si conditions réunies
       const isAutoOk = d.auto_ok === true
       const isICT    = stratId === 'ICT_AutoBot_v1' && entry.signal === 'SIGNAL_TRES_FORT_15M'
       const isNEXUS  = stratId === 'NEXUS_Pro_v1'   && (entry.signal === 'NEXUS_TREND_BULL' || entry.signal === 'NEXUS_TREND_BEAR')
@@ -463,7 +445,6 @@ app.get('/api/automode', (_, res) => {
   res.json({ autoMode:globalAutoMode, strategyModes:stratModes, riskPercent:RISK_PERCENT, maxOpenTrades:MAX_OPEN_TRADES })
 })
 
-// Toggle global
 app.post('/api/automode', (req, res) => {
   const { enabled } = req.body
   if (typeof enabled !== 'boolean') return res.status(400).json({ error:'enabled boolean requis' })
@@ -473,7 +454,6 @@ app.post('/api/automode', (req, res) => {
   res.json({ ok:true, autoMode:globalAutoMode })
 })
 
-// Toggle par stratégie
 app.post('/api/automode/:stratId', (req, res) => {
   const { stratId } = req.params
   const { enabled, reason } = req.body
@@ -517,7 +497,6 @@ app.post('/api/accounts/:id/activate', async (req, res) => {
   const acc = AM.getRaw(req.params.id)
   if (!acc) return res.status(404).json({ error:'Compte introuvable' })
 
-  // Connecter si pas déjà connecté
   if (!ctraderInstances.get(acc.id)?.isReady) {
     const instance = await connectAccount(acc.id)
     if (!instance) return res.status(500).json({ error:'Connexion échouée' })
@@ -552,22 +531,16 @@ app.get('/api/drawdown', async (_, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════════
-// API BACKTESTING — Import résultats TradingView
+// API BACKTESTING
 // ══════════════════════════════════════════════════════════════════
 app.post('/api/backtest/import', upload.single('file'), (req, res) => {
   try {
     const content = req.file?.buffer?.toString('utf8') || ''
     if (!content) return res.status(400).json({ error:'Fichier vide ou manquant' })
-
     const ext = req.file?.originalname?.split('.').pop()?.toLowerCase()
-
     let parsed
-    if (ext === 'json') {
-      parsed = parseBacktestJSON(content)
-    } else {
-      parsed = parseBacktestCSV(content)
-    }
-
+    if (ext === 'json') { parsed = parseBacktestJSON(content) }
+    else                { parsed = parseBacktestCSV(content)  }
     res.json(parsed)
   } catch(e) {
     res.status(400).json({ error:`Erreur parsing: ${e.message}` })
@@ -577,14 +550,12 @@ app.post('/api/backtest/import', upload.single('file'), (req, res) => {
 function parseBacktestCSV(csv) {
   const lines   = csv.split('\n').filter(l => l.trim())
   const headers = lines[0].split(',').map(h => h.trim().replace(/['"]/g,'').toLowerCase())
-
   const rows = lines.slice(1).map(line => {
     const cells = line.split(',').map(c => c.trim().replace(/['"]/g,''))
     const obj   = {}
     headers.forEach((h, i) => { obj[h] = cells[i] || '' })
     return obj
   }).filter(r => r['trade #'] || r['date/time'] || r['profit'])
-
   return buildBacktestResult(rows, headers)
 }
 
@@ -811,7 +782,6 @@ app.post('/api/order', async (req, res) => {
 app.get('/api/test', async (req, res) => {
   const s = req.query.strategy || SM.getActiveStrategy().id
   for (const t of [
-    // Signal EURUSD BUY (original)
     {
       pair      : 'EURUSD',
       strategy  : s,
@@ -828,7 +798,6 @@ app.get('/api/test', async (req, res) => {
       rr_reel   : '2.1',
       score     : 82,
     },
-    // Signal EURCAD BUY (données réelles screenshot)
     {
       pair      : 'EURCAD',
       strategy  : s,

@@ -51,7 +51,7 @@ resource "local_file" "docker_stack_prod" {
           - trading-net
         env_file: .env.prod
         deploy:
-          replicas: 1
+          replicas: 2
           update_config:
             parallelism: 1
             delay: 10s
@@ -86,7 +86,7 @@ resource "local_file" "docker_stack_prod" {
         networks:
           - trading-net
         deploy:
-          replicas: 1
+          replicas: 2
           update_config:
             parallelism: 1
             delay: 10s
