@@ -5,6 +5,10 @@ import Login from './components/Login'
 import StrategyManager from './components/StrategyManager'
 import './App.css'
 
+
+// ── Version injectée au build par Vite (VITE_APP_VERSION=vX.X.X) ──
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || 'dev'
+
 const PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','USDCAD','NZDUSD','EURGBP','EURJPY','EURCHF','EURAUD','EURCAD','EURNZD','GBPJPY','GBPCHF','GBPAUD','GBPCAD','GBPNZD','AUDJPY','AUDCHF','AUDCAD','AUDNZD','CADJPY','CADCHF','CHFJPY','NZDJPY','NZDCHF','NZDCAD']
 const empty = p => ({ pair:p, htf:null, ltf:null, hasSignal:false })
 const tt = { background:'#1E293B', border:'1px solid #334155', borderRadius:6, fontSize:12 }
@@ -842,7 +846,18 @@ function Dashboard({ token, onLogout }) {
           <div>
             <div
               data-testid="header-title"
-              className="hdr-title">Docker FX Dashboard</div>
+              className="hdr-title"
+              style={{display:'flex',alignItems:'center',gap:8}}>
+              Docker FX Dashboard
+              <span style={{
+                fontSize:11,fontWeight:600,color:'#64748B',
+                background:'rgba(255,255,255,0.06)',
+                border:'1px solid rgba(255,255,255,0.1)',
+                borderRadius:4,padding:'1px 6px',
+                letterSpacing:'0.3px',
+                fontFamily:'var(--mono)',
+              }}>{APP_VERSION}</span>
+            </div>
             <div className="hdr-sub">FTMO · cTrader · 28 paires Forex</div>
           </div>
         </div>

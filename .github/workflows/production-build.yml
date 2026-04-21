@@ -47,6 +47,7 @@ jobs:
           push: true
           tags: |
             ${{ steps.meta.outputs.backend_image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.backend_image }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -58,5 +59,8 @@ jobs:
           push: true
           tags: |
             ${{ steps.meta.outputs.frontend_image }}:${{ steps.meta.outputs.version }}
+            ${{ steps.meta.outputs.frontend_image }}:latest
+          build-args: |
+            VITE_APP_VERSION=${{ steps.meta.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
