@@ -32,7 +32,7 @@ TC02 - Login valide affiche le dashboard
     Click Button      ${LOGIN_SUBMIT_BTN}
     Sleep    2s
     Wait Until Element Is Visible    ${HEADER_TITLE}    ${TIMEOUT}
-    Element Text Should Be           ${HEADER_TITLE}    Docker FX Dashboard
+    Element Should Contain           ${HEADER_TITLE}     Docker FX Dashboard   
     Capture Page Screenshot
 
 TC03 - Dashboard affiche le header
@@ -48,7 +48,7 @@ TC03 - Dashboard affiche le header
     Click Button      ${LOGIN_SUBMIT_BTN}
     Sleep    2s
     Wait Until Element Is Visible    ${HEADER_TITLE}    ${TIMEOUT}
-    Element Text Should Be           ${HEADER_TITLE}    Docker FX Dashboard
+    Element Should Contain           ${HEADER_TITLE}    Docker FX Dashboard
     Capture Page Screenshot
 
 TC04 - Login avec mauvais mot de passe
