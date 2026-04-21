@@ -466,7 +466,7 @@ class CTraderService {
     const symbolId = this._getSymbolId(symbol)
     if (!symbolId)  throw new Error(`Symbole inconnu: ${symbol} — pas dans la map hardcodée`)
 
-    // ✅ FIX — Conversion lots → unités avec validation explicite
+    // ✅ FIX — Conversion lots    → unités avec validation explicite
     const volumeUnits = Math.round(parseFloat(volume) * 100000)
     if (!volumeUnits || volumeUnits <= 0 || isNaN(volumeUnits)) {
       throw new Error(`Volume invalide: ${volume} lots → ${volumeUnits} unités. Vérifier calcLotsDynamic().`)
