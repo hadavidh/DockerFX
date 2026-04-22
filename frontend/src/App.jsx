@@ -430,7 +430,7 @@ function AccountsPage({ token, accounts, setAccounts, activeAccount, setActiveAc
   const addAccount = async () => {
     const res  = await fetch('/api/accounts',{method:'POST',headers:hdr,body:JSON.stringify(form)})
     const data = await res.json()
-    if (data.ok) { setMsg('Compte ajouté !'); setShowAdd(false); setAccounts(data.accounts||accounts) }
+    if (data.ok) { setMsg('Compte  ajouté !'); setShowAdd(false); setAccounts(data.accounts||accounts) }
     else setMsg(data.error||'Erreur')
     setTimeout(()=>setMsg(null),3000)
   }
