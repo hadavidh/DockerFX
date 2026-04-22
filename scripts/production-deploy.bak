@@ -76,7 +76,12 @@ jobs:
 
       - name: Deploy rolling update on Swarm
         run: |
-          ssh             -o ServerAliveInterval=30             -o ServerAliveCountMax=10             -o TCPKeepAlive=yes             -o ConnectTimeout=10             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << 'EOF'
+          ssh \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -o TCPKeepAlive=yes \
+            -o ConnectTimeout=10 \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << 'EOF'
               set -e
 
               echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
@@ -87,9 +92,19 @@ jobs:
               echo "Deploy backend image: $BACKEND_IMAGE"
               echo "Deploy frontend image: $FRONTEND_IMAGE"
 
-              docker service update                 --image "$BACKEND_IMAGE"                 --update-parallelism 1                 --update-delay 10s                 --with-registry-auth                 ict-prod_backend
+              docker service update \
+                --image "$BACKEND_IMAGE" \
+                --update-parallelism 1 \
+                --update-delay 10s \
+                --with-registry-auth \
+                ict-prod_backend
 
-              docker service update                 --image "$FRONTEND_IMAGE"                 --update-parallelism 1                 --update-delay 10s                 --with-registry-auth                 ict-prod_frontend
+              docker service update \
+                --image "$FRONTEND_IMAGE" \
+                --update-parallelism 1 \
+                --update-delay 10s \
+                --with-registry-auth \
+                ict-prod_frontend
 
               echo "Waiting for services to converge..."
               sleep 15
@@ -97,27 +112,39 @@ jobs:
               docker service ls
               docker service ps ict-prod_backend --no-trunc
               docker service ps ict-prod_frontend --no-trunc
+
+              echo "Checking public frontend on port 80..."
+              for i in $(seq 1 12); do
+                HTTP_CODE=$(curl -4 -s -o /dev/null -w "%{http_code}" \
+                  --connect-timeout 3 \
+                  --max-time 5 \
+                  http://127.0.0.1/ || true)
+
+                if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
+                  echo "✅ Production frontend reachable (HTTP $HTTP_CODE)"
+                  exit 0
+                fi
+
+                echo "Attempt $i/12... HTTP=$HTTP_CODE"
+                sleep 5
+              done
+
+              echo "❌ Production frontend healthcheck failed"
+              echo "Listening ports:"
+              ss -ltnp | grep ':80' || true
+              echo "Service status:"
+              docker service ls
+              docker service ps ict-prod_backend --no-trunc
+              docker service ps ict-prod_frontend --no-trunc
+              exit 1
             EOF
 
-      - name: Verify production frontend from runner
-        run: |
-          echo "Checking public frontend on port 80 from GitHub runner..."
-          for i in $(seq 1 12); do
-            HTTP_CODE=$(curl -4 -s -o /dev/null -w "%{http_code}"               --connect-timeout 3               --max-time 5               "http://${{ secrets.VPS_HOST }}/" || true)
-
-            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
-              echo "✅ Production frontend reachable (HTTP $HTTP_CODE)"
-              exit 0
-            fi
-
-            echo "Attempt $i/12... HTTP=$HTTP_CODE"
-            sleep 5
-          done
-
-          echo "❌ Production frontend healthcheck failed from runner"
-          exit 1
-
       - name: Show service status
-        if: always()
         run: |
-          ssh             -o ServerAliveInterval=30             -o ServerAliveCountMax=10             -o TCPKeepAlive=yes             -o ConnectTimeout=10             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"             'docker service ls && docker service ps ict-prod_backend --no-trunc && docker service ps ict-prod_frontend --no-trunc'
+          ssh \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -o TCPKeepAlive=yes \
+            -o ConnectTimeout=10 \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            'docker service ls && docker service ps ict-prod_backend --no-trunc && docker service ps ict-prod_frontend --no-trunc'
