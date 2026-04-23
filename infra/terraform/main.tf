@@ -47,6 +47,8 @@ resource "local_file" "docker_stack_prod" {
 
       backend:
         image: dave67000/ict-trading-backend:latest
+        volumes:
+          - ${var.ssl_dir}:/etc/nginx/ssl:ro
         networks:
           - trading-net
         env_file: .env.prod
@@ -61,7 +63,7 @@ resource "local_file" "docker_stack_prod" {
             parallelism: 1
             delay: 5s
           restart_policy:
-            condition: on-failure
+            condition: any
             delay: 5s
             max_attempts: 3
             window: 120s
@@ -85,7 +87,7 @@ resource "local_file" "docker_stack_prod" {
           - "80:80"
           - "443:443"
         volumes:
-          - /home/ubuntu/dockerFX/ssl:/etc/nginx/ssl:ro
+          - ${var.ssl_dir}:/etc/nginx/ssl:ro
         networks:
           - trading-net
         deploy:
@@ -107,11 +109,11 @@ resource "local_file" "docker_stack_prod" {
               cpus: '0.05'
               memory: 50M
         healthcheck:
-          test: ["CMD-SHELL", "wget --no-check-certificate -qO- https://localhost/ > /dev/null 2>&1 || exit 1"]
+          test: ["CMD-SHELL", "wget --no-check-certificate -qO- https://127.0.0.1/ > /dev/null 2>&1 || exit 1"]
           interval: 30s
           timeout: 5s
           retries: 3
-          start_period: 30s
+          start_period: 45s
 
     networks:
       trading-net:
@@ -208,7 +210,7 @@ resource "local_file" "docker_compose_prod" {
           - PORT=${var.backend_prod_port}
           - NODE_ENV=production
         healthcheck:
-          test: ["CMD","wget","-qO-","http://localhost:${var.backend_prod_port}/health"]
+          test: ["CMD","wget","-qO-","http://127.0.0.1:${var.backend_prod_port}/health"]
           interval: 30s
           timeout: 5s
           retries: 3
@@ -224,6 +226,7 @@ resource "local_file" "docker_compose_prod" {
         restart: unless-stopped
         ports:
           - "${var.prod_port}:80"
+          - "${var.prod_https_port}:443"
         volumes:
           - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
         depends_on:
@@ -258,14 +261,15 @@ resource "local_file" "nginx_frontend_prod" {
 
     server {
         listen 80;
-        server_name dockerfx.trade www.dockerfx.trade;
+        server_name ${var.domain_name} ${var.domain_www};
 
         return 301 https://$host$request_uri;
     }
 
     server {
-        listen 443 ssl http2;
-        server_name dockerfx.trade www.dockerfx.trade;
+        listen 443 ssl;
+        http2 on;
+        server_name ${var.domain_name} ${var.domain_www};
 
         ssl_certificate     /etc/nginx/ssl/cloudflare-origin.crt;
         ssl_certificate_key /etc/nginx/ssl/cloudflare-origin.key;
