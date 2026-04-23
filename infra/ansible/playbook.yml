@@ -178,6 +178,26 @@
         mode: '0700'
       tags: dirs
 
+    - name: Vérifier la présence du certificat Cloudflare Origin
+      stat:
+        path: "{{ project_dir }}/ssl/cloudflare-origin.crt"
+      register: ssl_cert_stat
+      tags: config
+
+    - name: Vérifier la présence de la clé privée Cloudflare Origin
+      stat:
+        path: "{{ project_dir }}/ssl/cloudflare-origin.key"
+      register: ssl_key_stat
+      tags: config
+
+    - name: Échouer si les certificats HTTPS prod sont absents
+      fail:
+        msg: >-
+          Certificats HTTPS manquants dans {{ project_dir }}/ssl.
+          Fichiers attendus : cloudflare-origin.crt et cloudflare-origin.key
+      when: not ssl_cert_stat.stat.exists or not ssl_key_stat.stat.exists
+      tags: config
+
     # ════════════════════════════════════════════════════════════
     # 5. COPIE DES FICHIERS DE CONFIG (générés par Terraform)
     # ════════════════════════════════════════════════════════════
@@ -257,7 +277,7 @@
       tags: env
 
     # ════════════════════════════════════════════════════════════
-    # 7. DOCKER SWARM — Production (1 replica backend + 1 frontend)
+    # 7. DOCKER SWARM — Production (2 replica backend + 2 frontend)
     # ════════════════════════════════════════════════════════════
 
     - name: Vérifier si Swarm est déjà initialisé
@@ -318,8 +338,8 @@
         docker service ls --filter name=ict-prod \
           --format "{{ '{{' }}.Replicas{{ '}}' }}"
       register: swarm_replicas
-      retries: 4
-      delay: 10
+      retries: 8
+      delay: 15
       until: "'0/' not in swarm_replicas.stdout"
       become_user: ubuntu
       ignore_errors: yes
@@ -334,6 +354,42 @@
     - name: Résumé services Swarm
       debug:
         msg: "{{ swarm_services.stdout_lines }}"
+      tags: swarm
+
+    - name: Afficher le détail du frontend Swarm
+      shell: docker service ps ict-prod_frontend --no-trunc
+      register: swarm_frontend_ps
+      become_user: ubuntu
+      changed_when: false
+      tags: swarm
+
+    - name: Résumé détail frontend Swarm
+      debug:
+        msg: "{{ swarm_frontend_ps.stdout_lines }}"
+      tags: swarm
+
+    - name: Afficher les logs récents du frontend Swarm si réplica KO
+      shell: docker service logs ict-prod_frontend --since 10m
+      register: swarm_frontend_logs
+      become_user: ubuntu
+      changed_when: false
+      failed_when: false
+      when: "'0/' in swarm_replicas.stdout"
+      tags: swarm
+
+    - name: Résumé logs frontend Swarm si réplica KO
+      debug:
+        msg: "{{ swarm_frontend_logs.stdout_lines | default([]) }}"
+      when: "'0/' in swarm_replicas.stdout"
+      tags: swarm
+
+    - name: Échouer si le frontend Swarm n'est pas prêt
+      fail:
+        msg: >-
+          Le frontend Swarm n'est pas prêt.
+          Vérifier docker service ps ict-prod_frontend --no-trunc
+          et docker service logs ict-prod_frontend --since 10m
+      when: "'0/' in swarm_replicas.stdout"
       tags: swarm
 
     # ════════════════════════════════════════════════════════════
@@ -396,8 +452,10 @@
         url: "https://127.0.0.1/"
         status_code: 200
         validate_certs: false
-      retries: 5
+      register: prod_https_check
+      retries: 8
       delay: 5
+      until: prod_https_check.status == 200
       tags: verify
 
     - name: Vérifier health check staging
