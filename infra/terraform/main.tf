@@ -46,7 +46,7 @@ resource "local_file" "docker_stack_prod" {
     services:
 
       backend:
-        image: ${var.backend_image}:latest
+        image: dave67000/ict-trading-backend:latest
         networks:
           - trading-net
         env_file: .env.prod
@@ -73,16 +73,19 @@ resource "local_file" "docker_stack_prod" {
               cpus: '0.1'
               memory: 100M
         healthcheck:
-          test: ["CMD", "wget", "-qO-", "http://localhost:${var.backend_prod_port}/health"]
+          test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
           interval: 30s
           timeout: 5s
           retries: 3
           start_period: 15s
 
       frontend:
-        image: ${var.frontend_image}:latest
+        image: dave67000/ict-trading-frontend:latest
         ports:
-          - "${var.prod_port}:80"
+          - "80:80"
+          - "443:443"
+        volumes:
+          - /home/ubuntu/dockerFX/ssl:/etc/nginx/ssl:ro
         networks:
           - trading-net
         deploy:
@@ -104,7 +107,7 @@ resource "local_file" "docker_stack_prod" {
               cpus: '0.05'
               memory: 50M
         healthcheck:
-          test: ["CMD-SHELL", "wget -qO- http://localhost/ > /dev/null 2>&1 || exit 0"]
+          test: ["CMD-SHELL", "wget --no-check-certificate -qO- https://localhost/ > /dev/null 2>&1 || exit 1"]
           interval: 30s
           timeout: 5s
           retries: 3
@@ -249,19 +252,29 @@ resource "local_file" "nginx_frontend_prod" {
   file_permission = "0644"
   content         = <<-EOT
     # ╔══════════════════════════════════════════════════════════╗
-    # ║  NGINX — Config PRODUCTION                              ║
+    # ║  NGINX — Config PRODUCTION HTTPS                        ║
     # ║  Généré automatiquement par Terraform                   ║
     # ╚══════════════════════════════════════════════════════════╝
 
     server {
         listen 80;
-        server_name _;
+        server_name dockerfx.trade www.dockerfx.trade;
+
+        return 301 https://$host$request_uri;
+    }
+
+    server {
+        listen 443 ssl http2;
+        server_name dockerfx.trade www.dockerfx.trade;
+
+        ssl_certificate     /etc/nginx/ssl/cloudflare-origin.crt;
+        ssl_certificate_key /etc/nginx/ssl/cloudflare-origin.key;
 
         root /usr/share/nginx/html;
         index index.html;
 
         resolver 127.0.0.11 valid=30s ipv6=off;
-        set $backend "backend:${var.backend_prod_port}";
+        set $backend "backend:3001";
 
         location / {
             try_files $uri $uri/ /index.html;

@@ -139,19 +139,9 @@ if [ "$DESTROY" = true ]; then
 
   # ── Docker Compose staging ───────────────────────────────────
   print_step "Arrêt du staging (Compose)..."
-  cd "$PROJECT_DIR"
-
-  STAGING_FOUND=false
-  if docker ps -aq --filter "name=^/staging-" 2>/dev/null | grep -q .; then
-    STAGING_FOUND=true
-  fi
-  if docker ps -aq --filter "name=^/forex-.*-staging$" 2>/dev/null | grep -q .; then
-    STAGING_FOUND=true
-  fi
-
-  if [ "$STAGING_FOUND" = true ]; then
-    docker compose -p staging -f docker-compose.staging.yml down --remove-orphans 2>/dev/null || true
-    docker rm -f staging-backend-1 staging-frontend-1 forex-backend-staging forex-frontend-staging 2>/dev/null || true
+  if docker ps -q --filter "name=forex-backend-staging" 2>/dev/null | grep -q .; then
+    cd "$PROJECT_DIR"
+    docker compose -p staging -f docker-compose.staging.yml down 2>/dev/null || true
     print_ok "Staging arrêté"
   else
     print_info "Staging non actif"
@@ -300,19 +290,10 @@ if [ "$SWARM_ONLY" = false ] && [ "$STAGING_ONLY" = false ]; then
   fi
 
   # Staging
-  STAGING_FOUND=false
-  if docker ps -aq --filter "name=^/staging-" 2>/dev/null | grep -q .; then
-    STAGING_FOUND=true
-  fi
-  if docker ps -aq --filter "name=^/forex-.*-staging$" 2>/dev/null | grep -q .; then
-    STAGING_FOUND=true
-  fi
-
-  if [ "$STAGING_FOUND" = true ]; then
+  if docker ps -q --filter "name=forex-frontend-staging" 2>/dev/null | grep -q .; then
     print_step "Arrêt du staging..."
     cd "$PROJECT_DIR"
-    docker compose -p staging -f docker-compose.staging.yml down --remove-orphans 2>/dev/null || true
-    docker rm -f staging-backend-1 staging-frontend-1 forex-backend-staging forex-frontend-staging 2>/dev/null || true
+    docker compose -p staging -f docker-compose.staging.yml down 2>/dev/null || true
     print_ok "Staging arrêté"
   else
     print_info "Staging non actif"
@@ -512,14 +493,14 @@ echo ""
 echo -e "${WHITE}  🌐 Health checks HTTP :${NC}"
 echo -e "${CYAN}  ─────────────────────────────────────────────────────${NC}"
 
-if curl -k -4 -sf --connect-timeout 3 --max-time 5 https://127.0.0.1/ &>/dev/null; then
-  print_ok "Production   https://dockerfx.trade   → OK"
+if curl -4 -sf --connect-timeout 3 --max-time 5 http://127.0.0.1/ &>/dev/null; then
+  print_ok "Production   http://localhost/       → OK"
 else
-  print_error "Production   https://dockerfx.trade   → KO"
+  print_error "Production   http://localhost/       → KO"
 fi
 
-if curl -4 -sf --connect-timeout 3 --max-time 5 http://127.0.0.1:8080/health &>/dev/null; then
-  UPTIME=$(curl -4 -s --connect-timeout 3 --max-time 5 http://127.0.0.1:8080/health | \
+if curl -sf --max-time 5 http://localhost:8080/health &>/dev/null; then
+  UPTIME=$(curl -s http://localhost:8080/health | \
     python3 -c "import json,sys;d=json.load(sys.stdin);print(str(round(d.get('uptime',0)))+'s')" 2>/dev/null || echo "OK")
   print_ok "Staging      http://localhost:8080   → uptime $UPTIME"
 else
@@ -560,14 +541,14 @@ echo -e "${CYAN}═════════════════════�
 echo -e "${GREEN}  ✅  DÉPLOIEMENT TERMINÉ en ${SECONDS}s${NC}"
 echo -e "${CYAN}════════════════════════════════════════════════════════${NC}"
 echo ""
-echo -e "  ${WHITE}🟢 Production  (Swarm)  :${NC} https://dockerfx.trade"
+echo -e "  ${WHITE}🟢 Production  (Swarm)  :${NC} http://135.125.196.204"
 echo -e "  ${WHITE}🔵 Staging     (Compose):${NC} http://135.125.196.204:8080"
 echo ""
 echo -e "  ${WHITE}Commandes utiles :${NC}"
 echo -e "  ${CYAN}  docker service ls${NC}                           état des services Swarm"
 echo -e "  ${CYAN}  docker service scale ict-prod_backend=3${NC}   scaler le backend prod"
 echo -e "  ${CYAN}  docker service logs -f ict-prod_backend${NC}   logs backend prod"
-echo -e "  ${CYAN}  docker compose -p staging -f docker-compose.staging.yml logs -f backend${NC}  logs staging"
+echo -e "  ${CYAN}  docker logs -f forex-backend-staging${NC}        logs staging"
 echo -e "  ${CYAN}  docker service rollback ict-prod_backend${NC}  rollback backend prod"
 echo ""
 echo -e "  ${WHITE}Redéployer :${NC}"

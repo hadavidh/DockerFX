@@ -50,6 +50,9 @@ services:
     image: dave67000/ict-trading-frontend:latest
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - /home/ubuntu/dockerFX/ssl:/etc/nginx/ssl:ro
     networks:
       - trading-net
     deploy:
@@ -71,7 +74,7 @@ services:
           cpus: '0.05'
           memory: 50M
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/ > /dev/null 2>&1 || exit 0"]
+      test: ["CMD-SHELL", "wget --no-check-certificate -qO- https://localhost/ > /dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

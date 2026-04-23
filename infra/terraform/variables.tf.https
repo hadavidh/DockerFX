@@ -28,10 +28,34 @@ variable "frontend_image" {
   default     = "dave67000/ict-trading-frontend"
 }
 
+variable "domain_name" {
+  description = "Nom de domaine principal de la production"
+  type        = string
+  default     = "dockerfx.trade"
+}
+
+variable "domain_www" {
+  description = "Sous-domaine WWW de la production"
+  type        = string
+  default     = "www.dockerfx.trade"
+}
+
+variable "ssl_dir" {
+  description = "Dossier VPS contenant les certificats Cloudflare Origin CA"
+  type        = string
+  default     = "/home/ubuntu/dockerFX/ssl"
+}
+
 variable "prod_port" {
   description = "Port HTTP production"
   type        = number
   default     = 80
+}
+
+variable "prod_https_port" {
+  description = "Port HTTPS production"
+  type        = number
+  default     = 443
 }
 
 variable "staging_port" {

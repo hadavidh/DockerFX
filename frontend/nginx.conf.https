@@ -1,11 +1,21 @@
 # ╔══════════════════════════════════════════════════════════╗
-# ║  NGINX — Config PRODUCTION                              ║
+# ║  NGINX — Config PRODUCTION HTTPS                        ║
 # ║  Généré automatiquement par Terraform                   ║
 # ╚══════════════════════════════════════════════════════════╝
 
 server {
     listen 80;
-    server_name _;
+    server_name dockerfx.trade www.dockerfx.trade;
+
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name dockerfx.trade www.dockerfx.trade;
+
+    ssl_certificate     /etc/nginx/ssl/cloudflare-origin.crt;
+    ssl_certificate_key /etc/nginx/ssl/cloudflare-origin.key;
 
     root /usr/share/nginx/html;
     index index.html;
