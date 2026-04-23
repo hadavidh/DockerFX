@@ -1,6 +1,11 @@
 output "prod_url" {
   description = "URL de production"
-  value       = "http://${var.vps_ip}"
+  value       = "https://${var.domain_name}"
+}
+
+output "prod_http_url" {
+  description = "URL HTTP production (redirigée vers HTTPS)"
+  value       = "http://${var.domain_name}"
 }
 
 output "staging_url" {
@@ -8,12 +13,18 @@ output "staging_url" {
   value       = "http://${var.vps_ip}:${var.staging_port}"
 }
 
+output "ssl_directory" {
+  description = "Dossier VPS contenant les certificats Cloudflare Origin CA"
+  value       = var.ssl_dir
+}
+
 output "files_generated" {
   description = "Fichiers générés par Terraform"
   value = [
-    "docker-compose.prod.yml",
+    "docker-stack.prod.yml",
     "docker-compose.staging.yml",
-    "nginx/nginx.conf",
+    "frontend/nginx.conf",
+    "frontend/nginx.staging.conf",
     "infra/ansible/inventory.yml",
     ".env.staging.example",
   ]

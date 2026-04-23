@@ -169,6 +169,15 @@
         mode: '0755'
       tags: dirs
 
+    - name: Créer le dossier ssl
+      file:
+        path: "{{ project_dir }}/ssl"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0700'
+      tags: dirs
+
     # ════════════════════════════════════════════════════════════
     # 5. COPIE DES FICHIERS DE CONFIG (générés par Terraform)
     # ════════════════════════════════════════════════════════════
@@ -373,6 +382,14 @@
         timeout: 90
       tags: verify
 
+    - name: Attendre que la production HTTPS réponde (port 443)
+      wait_for:
+        port: 443
+        host: localhost
+        delay: 5
+        timeout: 90
+      tags: verify
+
     - name: Attendre que le staging réponde (port 8080)
       wait_for:
         port: 8080
@@ -382,17 +399,18 @@
       ignore_errors: yes
       tags: verify
 
-    - name: Vérifier health check production
+    - name: Vérifier la page d'accueil production en HTTPS
       uri:
-        url: "http://localhost/health"
+        url: "https://127.0.0.1/"
         status_code: 200
+        validate_certs: false
       retries: 5
       delay: 5
       tags: verify
 
     - name: Vérifier health check staging
       uri:
-        url: "http://localhost:8080/health"
+        url: "http://127.0.0.1:8080/health"
         status_code: 200
       retries: 5
       delay: 5
@@ -410,7 +428,7 @@
           - "║  ✅  Déploiement terminé !                   ║"
           - "╠══════════════════════════════════════════════╣"
           - "║  🟢 Production (Swarm)                       ║"
-          - "║     http://{{ ansible_host }}                ║"
+          - "║     https://dockerfx.trade                   ║"
           - "║     backend  : 1 replica                     ║"
           - "║     frontend : 1 replica                     ║"
           - "╠══════════════════════════════════════════════╣"

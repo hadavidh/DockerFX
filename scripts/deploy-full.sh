@@ -35,6 +35,7 @@ PROJECT_DIR="$HOME/dockerFX"
 TERRAFORM_DIR="$PROJECT_DIR/infra/terraform"
 ANSIBLE_DIR="$PROJECT_DIR/infra/ansible"
 DOCKERHUB_USER="dave67000"
+SSL_DIR="$PROJECT_DIR/ssl"
 
 # ── Flags (défauts) ────────────────────────────────────────────
 SKIP_BUILD=false
@@ -273,6 +274,13 @@ if [ "$SWARM_ONLY" = false ] && [ "$STAGING_ONLY" = false ]; then
     print_warn ".env.prod absent — sera créé vide par Ansible"
   fi
 
+  # Certificats HTTPS prod
+  if [ -f "$SSL_DIR/cloudflare-origin.crt" ] && [ -f "$SSL_DIR/cloudflare-origin.key" ]; then
+    print_ok "Certificats HTTPS Cloudflare Origin présents"
+  else
+    print_warn "Certificats HTTPS manquants dans $SSL_DIR"
+  fi
+
   if [ $ERRORS -gt 0 ]; then
     echo ""
     print_error "$ERRORS prérequis manquants. Corriger avant de continuer."
@@ -394,7 +402,7 @@ if [ "$SKIP_BUILD" = false ] && [ "$SWARM_ONLY" = false ] && [ "$STAGING_ONLY" =
   print_ok "Backend buildé"
 
   # Build frontend
-  print_step "Build image frontend (latest) avec nginx.conf Swarm..."
+  print_step "Build image frontend (latest) avec nginx.conf production HTTPS..."
   docker build \
     --target production \
     -t ${DOCKERHUB_USER}/ict-trading-frontend:latest \
@@ -509,11 +517,11 @@ docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null | \
 
 # ── Health checks ─────────────────────────────────────────────
 echo ""
-echo -e "${WHITE}  🌐 Health checks HTTP :${NC}"
+echo -e "${WHITE}  🌐 Health checks web :${NC}"
 echo -e "${CYAN}  ─────────────────────────────────────────────────────${NC}"
 
 if curl -k -4 -sf --connect-timeout 3 --max-time 5 https://127.0.0.1/ &>/dev/null; then
-  print_ok "Production   https://dockerfx.trade   → OK"
+  print_ok "Production   https://dockerfx.trade   → OK (origin HTTPS)"
 else
   print_error "Production   https://dockerfx.trade   → KO"
 fi
@@ -569,6 +577,7 @@ echo -e "  ${CYAN}  docker service scale ict-prod_backend=3${NC}   scaler le bac
 echo -e "  ${CYAN}  docker service logs -f ict-prod_backend${NC}   logs backend prod"
 echo -e "  ${CYAN}  docker compose -p staging -f docker-compose.staging.yml logs -f backend${NC}  logs staging"
 echo -e "  ${CYAN}  docker service rollback ict-prod_backend${NC}  rollback backend prod"
+echo -e "  ${CYAN}  curl -k https://127.0.0.1/${NC}                     test HTTPS local origin"
 echo ""
 echo -e "  ${WHITE}Redéployer :${NC}"
 echo -e "  ${CYAN}  bash scripts/deploy-full.sh --skip-build${NC}    sans rebuild"
