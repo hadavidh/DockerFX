@@ -388,12 +388,16 @@ resource "local_file" "ansible_inventory" {
           ansible_user:       ${var.vps_user}
 
       vars:
-        project_name:   ${var.project_name}
-        project_dir:    /home/${var.vps_user}/dockerFX
-        prod_port:      ${var.prod_port}
-        staging_port:   ${var.staging_port}
-        backend_image:  ${var.backend_image}
-        frontend_image: ${var.frontend_image}
+        project_name:     ${var.project_name}
+        project_dir:      /home/${var.vps_user}/dockerFX
+        prod_port:        ${var.prod_port}
+        prod_https_port:  ${var.prod_https_port}
+        staging_port:     ${var.staging_port}
+        backend_image:    ${var.backend_image}
+        frontend_image:   ${var.frontend_image}
+        domain_name:      ${var.domain_name}
+        domain_www:       ${var.domain_www}
+        ssl_dir:          ${var.ssl_dir}
   EOT
 }
 

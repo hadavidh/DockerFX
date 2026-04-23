@@ -303,7 +303,7 @@
       become_user: ubuntu
       tags: swarm
 
-    - name: Déployer la stack Swarm — PRODUCTION (1+1 replicas)
+    - name: Déployer la stack Swarm — PRODUCTION
       shell: |
         cd {{ project_dir }}
         docker stack deploy \
@@ -374,14 +374,6 @@
     # 9. VÉRIFICATIONS
     # ════════════════════════════════════════════════════════════
 
-    - name: Attendre que la production réponde (port 80)
-      wait_for:
-        port: 80
-        host: localhost
-        delay: 10
-        timeout: 90
-      tags: verify
-
     - name: Attendre que la production HTTPS réponde (port 443)
       wait_for:
         port: 443
@@ -399,7 +391,7 @@
       ignore_errors: yes
       tags: verify
 
-    - name: Vérifier la page d'accueil production en HTTPS
+    - name: Vérifier la page d'accueil production en HTTPS (origin local)
       uri:
         url: "https://127.0.0.1/"
         status_code: 200
@@ -429,14 +421,14 @@
           - "╠══════════════════════════════════════════════╣"
           - "║  🟢 Production (Swarm)                       ║"
           - "║     https://dockerfx.trade                   ║"
-          - "║     backend  : 1 replica                     ║"
-          - "║     frontend : 1 replica                     ║"
+          - "║     backend  : 2 replicas attendues          ║"
+          - "║     frontend : 2 replicas attendues          ║"
           - "╠══════════════════════════════════════════════╣"
           - "║  🔵 Staging (Compose)                        ║"
-          - "║     http://{{ ansible_host }}:8080           ║"
+          - "║     http://localhost:8080                    ║"
           - "╠══════════════════════════════════════════════╣"
           - "║  📊 Grafana                                  ║"
-          - "║     http://{{ ansible_host }}:3000           ║"
+          - "║     http://localhost:3000                    ║"
           - "╠══════════════════════════════════════════════╣"
           - "║  🐳 Swarm scaling :                          ║"
           - "║  docker service scale ict-prod_backend=3     ║"
