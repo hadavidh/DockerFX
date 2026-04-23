@@ -1,0 +1,86 @@
+# ╔══════════════════════════════════════════════════════════╗
+# ║  DOCKER SWARM STACK — PRODUCTION (LEGACY)               ║
+# ║  Généré automatiquement par Terraform                   ║
+# ║  Ne pas modifier manuellement                           ║
+# ║                                                         ║
+# ║  Déploiement :                                          ║
+# ║    docker stack deploy -c docker-stack.prod.yml ict-prod║
+# ║                                                         ║
+# ║  Scaling :                                              ║
+# ║    docker service scale ict-prod_backend=3              ║
+# ╚══════════════════════════════════════════════════════════╝
+
+services:
+
+  backend:
+    image: dave67000/ict-trading-backend:latest
+    networks:
+      - trading-net
+    env_file: .env.prod
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 300M
+        reservations:
+          cpus: '0.1'
+          memory: 100M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    image: dave67000/ict-trading-frontend:latest
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /home/ubuntu/dockerFX/ssl:/etc/nginx/ssl:ro
+    networks:
+      - trading-net
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 100M
+        reservations:
+          cpus: '0.05'
+          memory: 50M
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-check-certificate -qO- https://localhost/ > /dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+networks:
+  trading-net:
+    driver: overlay
+    attachable: true
