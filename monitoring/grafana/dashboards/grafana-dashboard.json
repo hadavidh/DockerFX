@@ -1,0 +1,345 @@
+{
+  "title": "ICT Trading Dashboard — Monitoring",
+  "uid": "ict-trading-monitoring",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "15s",
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "Europe/Brussels",
+  "tags": ["trading", "ict", "production"],
+  "panels": [
+
+    { "type": "row", "title": "🖥️ Système VPS", "id": 100, "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 }, "collapsed": false },
+
+    {
+      "id": 1, "title": "CPU %", "type": "gauge",
+      "gridPos": { "x": 0, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [{ "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)", "legendFormat": "CPU" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 60 },
+            { "color": "red", "value": 80 }
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": false, "showThresholdMarkers": true }
+    },
+
+    {
+      "id": 2, "title": "RAM %", "type": "gauge",
+      "gridPos": { "x": 4, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [{ "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100", "legendFormat": "RAM" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 70 },
+            { "color": "red", "value": 85 }
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": false, "showThresholdMarkers": true }
+    },
+
+    {
+      "id": 3, "title": "Disque %", "type": "gauge",
+      "gridPos": { "x": 8, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [{ "expr": "(1 - (node_filesystem_avail_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"} / node_filesystem_size_bytes{mountpoint=\"/\",fstype!=\"tmpfs\"})) * 100", "legendFormat": "Disque" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent", "min": 0, "max": 100,
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 70 },
+            { "color": "red", "value": 85 }
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "showThresholdLabels": false, "showThresholdMarkers": true }
+    },
+
+    {
+      "id": 4, "title": "cTrader Connecté", "type": "stat",
+      "gridPos": { "x": 12, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [{ "expr": "trading_ctrader_connected", "legendFormat": "cTrader" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "min": 0, "max": 1,
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "DÉCONNECTÉ", "color": "red", "index": 0 }, "1": { "text": "CONNECTÉ", "color": "green", "index": 1 } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "red", "value": null },
+            { "color": "green", "value": 1 }
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "textMode": "auto", "graphMode": "none" }
+    },
+
+    {
+      "id": 5, "title": "WS Connectés", "type": "stat",
+      "gridPos": { "x": 16, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [{ "expr": "trading_websocket_connections_active", "legendFormat": "WebSocket" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "textMode": "auto", "graphMode": "none" }
+    },
+
+    {
+      "id": 6, "title": "Uptime Backend", "type": "stat",
+      "gridPos": { "x": 20, "y": 1, "w": 4, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [{ "expr": "time() - nodejs_process_start_time_seconds{app=\"ict-trading-backend\"}", "legendFormat": "Uptime" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "textMode": "auto", "graphMode": "none" }
+    },
+
+    { "type": "row", "title": "📡 Trading — Métriques Métier", "id": 200, "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 }, "collapsed": false },
+
+    {
+      "id": 7, "title": "Webhooks reçus / minute", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [
+        { "expr": "rate(trading_webhooks_total[5m]) * 60", "legendFormat": "{{strategy}} {{action}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "gradientMode": "opacity" },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+
+    {
+      "id": 8, "title": "Ordres — Exécutés vs Bloqués", "type": "timeseries",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [
+        { "expr": "increase(trading_orders_placed_total[1h])", "legendFormat": "Executes - {{strategy}}", "refId": "A" },
+        { "expr": "increase(trading_orders_blocked_total[1h])", "legendFormat": "Bloques - {{reason}}", "refId": "B" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 15 },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "Bloques.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": "Executes.*" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+
+    {
+      "id": 9, "title": "Latence Webhook p95 / p50 (ms)", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [
+        { "expr": "histogram_quantile(0.95, rate(trading_webhook_duration_seconds_bucket[5m])) * 1000", "legendFormat": "p95", "refId": "A" },
+        { "expr": "histogram_quantile(0.50, rate(trading_webhook_duration_seconds_bucket[5m])) * 1000", "legendFormat": "p50 mediane", "refId": "B" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "p95" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "p50 mediane" },
+            "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }]
+          }
+        ]
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 10, "title": "Erreurs cTrader (cumul)", "type": "stat",
+      "gridPos": { "x": 12, "y": 12, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [{ "expr": "sum(trading_ctrader_errors_total) or vector(0)", "legendFormat": "Erreurs" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 1 },
+            { "color": "red", "value": 5 }
+          ]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "textMode": "auto", "graphMode": "area" }
+    },
+
+    {
+      "id": 11, "title": "Total Webhooks (24h)", "type": "stat",
+      "gridPos": { "x": 18, "y": 12, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [{ "expr": "increase(trading_webhooks_total[24h])", "legendFormat": "Webhooks 24h" }],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }]}
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "textMode": "auto", "graphMode": "area" }
+    },
+
+    { "type": "row", "title": "🐳 Containers Docker Swarm", "id": 300, "gridPos": { "x": 0, "y": 17, "w": 24, "h": 1 }, "collapsed": false },
+
+    {
+      "id": 12, "title": "RAM Backend — Replicas (Mo)", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 18, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [
+        { "expr": "container_memory_usage_bytes{name=~\"ict-prod_backend.*\"} / 1024 / 1024", "legendFormat": "{{name}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes",
+          "custom": { "lineWidth": 2, "fillOpacity": 15 },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 200 },
+            { "color": "red", "value": 270 }
+          ]},
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": {
+        "tooltip": { "mode": "multi" },
+        "legend": { "displayMode": "table", "placement": "bottom" },
+        "thresholdsStyle": { "mode": "line" }
+      }
+    },
+
+    {
+      "id": 13, "title": "CPU Backend — Replicas (%)", "type": "timeseries",
+      "gridPos": { "x": 12, "y": 18, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [
+        { "expr": "rate(container_cpu_usage_seconds_total{name=~\"ict-prod_backend.*\"}[5m]) * 100", "legendFormat": "{{name}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "min": 0,
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+
+    {
+      "id": 14, "title": "RAM Frontend — Replicas (Mo)", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [
+        { "expr": "container_memory_usage_bytes{name=~\"ict-prod_frontend.*\"} / 1024 / 1024", "legendFormat": "{{name}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+
+    {
+      "id": 15, "title": "Restarts Containers (1h)", "type": "timeseries",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [
+        { "expr": "increase(container_start_time_seconds{name=~\"ict-prod.*\"}[1h])", "legendFormat": "{{name}}" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "lineWidth": 2, "fillOpacity": 20 },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" }, "legend": { "displayMode": "table", "placement": "bottom" } }
+    },
+
+    { "type": "row", "title": "📈 Node.js Runtime", "id": 400, "gridPos": { "x": 0, "y": 29, "w": 24, "h": 1 }, "collapsed": false },
+
+    {
+      "id": 16, "title": "Heap Node.js (Mo)", "type": "timeseries",
+      "gridPos": { "x": 0, "y": 30, "w": 12, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [
+        { "expr": "nodejs_heap_size_used_bytes{app=\"ict-trading-backend\"} / 1024 / 1024", "legendFormat": "Heap utilise" },
+        { "expr": "nodejs_heap_size_total_bytes{app=\"ict-trading-backend\"} / 1024 / 1024", "legendFormat": "Heap total" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decmbytes",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+
+    {
+      "id": 17, "title": "Event Loop Lag (ms)", "type": "timeseries",
+      "gridPos": { "x": 12, "y": 30, "w": 12, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus-uid" },
+      "targets": [
+        { "expr": "nodejs_eventloop_lag_seconds{app=\"ict-trading-backend\"} * 1000", "legendFormat": "Event Loop Lag" }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "thresholds": { "mode": "absolute", "steps": [
+            { "color": "green", "value": null },
+            { "color": "orange", "value": 100 },
+            { "color": "red", "value": 500 }
+          ]},
+          "color": { "mode": "fixed", "fixedColor": "purple" }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    }
+
+  ]
+}

@@ -4,13 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version à déployer (ex: v1.2.1)"
+        description: "Version à déployer (ex: v1.4.7)"
         required: true
         type: string
-
   workflow_run:
-    workflows:
-      - "Build Production"
+    workflows: ["Build Production"]
     types:
       - completed
 
@@ -23,7 +21,7 @@ permissions:
 
 jobs:
   deploy-production:
-    name: 🚀 Deploy to Production Swarm
+    name: 🚀 Deploy Production Gateway
     runs-on: ubuntu-latest
     environment: production
     if: >
@@ -37,23 +35,23 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             VERSION="${{ github.event.inputs.version }}"
             echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-            echo "version_from_workflow_run=false" >> "$GITHUB_OUTPUT"
+            echo "need_checkout=false" >> "$GITHUB_OUTPUT"
           else
-            echo "version_from_workflow_run=true" >> "$GITHUB_OUTPUT"
+            echo "need_checkout=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Checkout repository for tag resolution
-        if: ${{ steps.meta.outputs.version_from_workflow_run == 'true' }}
+        if: ${{ steps.meta.outputs.need_checkout == 'true' }}
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Extract version tag
-        if: ${{ steps.meta.outputs.version_from_workflow_run == 'true' }}
+      - name: Extract version tag from triggering commit
+        if: ${{ steps.meta.outputs.need_checkout == 'true' }}
         id: tag
         run: |
-          VERSION="$(git tag --points-at HEAD | grep '^v[0-9]' | head -n1)"
+          VERSION="$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)"
           test -n "$VERSION" || (echo "Impossible de déterminer le tag de version sur ce commit" && exit 1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -61,7 +59,7 @@ jobs:
         id: images
         run: |
           VERSION="${{ steps.meta.outputs.version || steps.tag.outputs.version }}"
-          test -n "$VERSION" || (echo "Version manquante" && exit 1)
+          echo "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || (echo "Version invalide: $VERSION" && exit 1)
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:$VERSION" >> "$GITHUB_OUTPUT"
@@ -74,39 +72,77 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy rolling update on Swarm
+      - name: Deploy production on VPS
         run: |
-          ssh             -o ServerAliveInterval=30             -o ServerAliveCountMax=10             -o TCPKeepAlive=yes             -o ConnectTimeout=10             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << 'EOF'
-              set -e
+          ssh \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -o TCPKeepAlive=yes \
+            -o ConnectTimeout=10 \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << EOFSSH
+            set -e
+            cd ~/dockerFX
 
-              echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-              BACKEND_IMAGE="${{ steps.images.outputs.backend_image }}"
-              FRONTEND_IMAGE="${{ steps.images.outputs.frontend_image }}"
+            BACKEND_IMAGE="${{ steps.images.outputs.backend_image }}"
+            FRONTEND_IMAGE="${{ steps.images.outputs.frontend_image }}"
 
-              echo "Deploy backend image: $BACKEND_IMAGE"
-              echo "Deploy frontend image: $FRONTEND_IMAGE"
+            echo "Deploying production version: ${{ steps.images.outputs.version }}"
+            echo "BACKEND_IMAGE=$BACKEND_IMAGE"
+            echo "FRONTEND_IMAGE=$FRONTEND_IMAGE"
 
-              docker service update                 --image "$BACKEND_IMAGE"                 --update-parallelism 1                 --update-delay 10s                 --with-registry-auth                 ict-prod_backend
+            docker service inspect ict-prod_backend >/dev/null 2>&1 || (echo "Service ict-prod_backend introuvable. Déployer d'abord la stack gateway-ready." && exit 1)
+            docker service inspect ict-prod_frontend >/dev/null 2>&1 || (echo "Service ict-prod_frontend introuvable. Déployer d'abord la stack gateway-ready." && exit 1)
 
-              docker service update                 --image "$FRONTEND_IMAGE"                 --update-parallelism 1                 --update-delay 10s                 --with-registry-auth                 ict-prod_frontend
+            docker service update \
+              --image "$BACKEND_IMAGE" \
+              --update-parallelism 1 \
+              --update-delay 10s \
+              --with-registry-auth \
+              ict-prod_backend
 
-              echo "Waiting for services to converge..."
-              sleep 15
+            docker service update \
+              --image "$FRONTEND_IMAGE" \
+              --update-parallelism 1 \
+              --update-delay 10s \
+              --with-registry-auth \
+              ict-prod_frontend
 
-              docker service ls
-              docker service ps ict-prod_backend --no-trunc
-              docker service ps ict-prod_frontend --no-trunc
-            EOF
+            echo "Waiting for services to converge..."
+            sleep 20
 
-      - name: Verify production frontend from runner
+            docker service ls
+            docker service ps ict-prod_backend --no-trunc
+            docker service ps ict-prod_frontend --no-trunc
+
+            echo "Checking production through local gateway..."
+            for i in $(seq 1 20); do
+              if curl -kfsS -H "Host: dockerfx.trade" https://127.0.0.1/ > /dev/null 2>&1; then
+                echo "✅ Production gateway reachable"
+                exit 0
+              fi
+              echo "Attempt $i/20..."
+              sleep 5
+            done
+
+            echo "❌ Production gateway healthcheck failed"
+            docker service ps ict-prod_frontend --no-trunc || true
+            docker service logs ict-prod_frontend --since 10m || true
+            exit 1
+          EOFSSH
+
+      - name: Verify public production URL from runner
         run: |
-          echo "Checking public frontend on port 80 from GitHub runner..."
+          echo "Checking https://dockerfx.trade from GitHub runner..."
           for i in $(seq 1 12); do
-            HTTP_CODE=$(curl -4 -s -o /dev/null -w "%{http_code}"               --connect-timeout 3               --max-time 5               "http://${{ secrets.VPS_HOST }}/" || true)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              --connect-timeout 5 \
+              --max-time 10 \
+              https://dockerfx.trade/ || true)
 
             if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
-              echo "✅ Production frontend reachable (HTTP $HTTP_CODE)"
+              echo "✅ Production public URL reachable (HTTP $HTTP_CODE)"
               exit 0
             fi
 
@@ -114,10 +150,16 @@ jobs:
             sleep 5
           done
 
-          echo "❌ Production frontend healthcheck failed from runner"
+          echo "❌ Production public URL healthcheck failed"
           exit 1
 
       - name: Show service status
         if: always()
         run: |
-          ssh             -o ServerAliveInterval=30             -o ServerAliveCountMax=10             -o TCPKeepAlive=yes             -o ConnectTimeout=10             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}"             'docker service ls && docker service ps ict-prod_backend --no-trunc && docker service ps ict-prod_frontend --no-trunc'
+          ssh \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -o TCPKeepAlive=yes \
+            -o ConnectTimeout=10 \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            'docker service ls && docker service ps ict-prod_backend --no-trunc && docker service ps ict-prod_frontend --no-trunc'

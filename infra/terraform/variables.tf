@@ -87,3 +87,44 @@ variable "backend_staging_port" {
   type        = number
   default     = 3002
 }
+
+# ════════════════════════════════════════════════════════════════
+# VARIABLES MONITORING
+# ════════════════════════════════════════════════════════════════
+
+variable "project_dir" {
+  description = "Chemin absolu du projet sur le VPS"
+  type        = string
+  default     = "/home/ubuntu/dockerFX"
+}
+
+variable "grafana_port" {
+  description = "Port public Grafana"
+  type        = number
+  default     = 3000
+}
+
+variable "prometheus_port" {
+  description = "Port interne Prometheus (non exposé public)"
+  type        = number
+  default     = 9090
+}
+
+variable "grafana_admin_user" {
+  description = "Login admin Grafana"
+  type        = string
+  default     = "admin"
+}
+
+variable "grafana_admin_password" {
+  description = "Mot de passe admin Grafana"
+  type        = string
+  default     = "ict-trading-2026"
+  sensitive   = true
+}
+
+variable "grafana_datasource_uid" {
+  description = "UID fixe de la datasource Prometheus dans Grafana"
+  type        = string
+  default     = "PBFA97CFB590B2093"
+}

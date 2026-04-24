@@ -65,5 +65,7 @@ jobs:
           tags: |
             ${{ steps.meta.outputs.frontend_image }}:develop
             ${{ steps.meta.outputs.frontend_image }}:develop-${{ steps.meta.outputs.sha_short }}
+          build-args: |
+            VITE_APP_VERSION=develop-${{ steps.meta.outputs.sha_short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

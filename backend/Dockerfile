@@ -43,6 +43,7 @@ COPY --from=builder /app/drawdown-monitor.js ./drawdown-monitor.js
 COPY --from=builder /app/telegram-bot.js     ./telegram-bot.js
 COPY --from=builder /app/push-service.js     ./push-service.js
 COPY --from=builder /app/auth.js             ./auth.js
+COPY --from=builder /app/metrics.js          ./metrics.js
 COPY --from=builder /app/package.json        ./package.json
 
 # Créer le dossier data avec les bonnes permissions

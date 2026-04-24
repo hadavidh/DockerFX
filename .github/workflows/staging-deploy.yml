@@ -6,9 +6,11 @@ on:
     workflows: ["Build Staging"]
     types:
       - completed
+    branches:
+      - develop
 
 concurrency:
-  group: staging-deploy-${{ github.event.workflow_run.id || github.run_id }}
+  group: staging-deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -16,19 +18,23 @@ permissions:
 
 jobs:
   deploy-staging:
-    name: 🚀 Deploy to Staging VPS
+    name: 🚀 Deploy Staging Gateway
     runs-on: ubuntu-latest
     environment: staging
-    if: >
-      github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Compute image tags
         id: meta
         run: |
-          echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:develop" >> "$GITHUB_OUTPUT"
-          echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend:develop" >> "$GITHUB_OUTPUT"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:develop" >> "$GITHUB_OUTPUT"
+            echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend:develop" >> "$GITHUB_OUTPUT"
+          else
+            SHA_SHORT="$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)"
+            echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:develop-$SHA_SHORT" >> "$GITHUB_OUTPUT"
+            echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend:develop-$SHA_SHORT" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Setup SSH
         run: |
@@ -37,9 +43,14 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy on VPS
+      - name: Deploy staging on VPS
         run: |
-          ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << EOF
+          ssh \
+            -o ServerAliveInterval=30 \
+            -o ServerAliveCountMax=10 \
+            -o TCPKeepAlive=yes \
+            -o ConnectTimeout=10 \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << EOFSSH
             set -e
             cd ~/dockerFX
 
@@ -48,40 +59,74 @@ jobs:
             export BACKEND_IMAGE="${{ steps.meta.outputs.backend_image }}"
             export FRONTEND_IMAGE="${{ steps.meta.outputs.frontend_image }}"
 
-            echo "Deploy backend image: \$BACKEND_IMAGE"
-            echo "Deploy frontend image: \$FRONTEND_IMAGE"
+            echo "Deploying BACKEND_IMAGE=$BACKEND_IMAGE"
+            echo "Deploying FRONTEND_IMAGE=$FRONTEND_IMAGE"
+
+            docker network inspect trading-staging >/dev/null 2>&1 || docker network create --driver bridge trading-staging
 
             docker compose -p staging -f docker-compose.staging.yml pull
             docker compose -p staging -f docker-compose.staging.yml down --remove-orphans || true
             docker compose -p staging -f docker-compose.staging.yml up -d
 
             echo "Waiting backend health on port 3002..."
-            for i in \$(seq 1 20); do
-              if docker compose -p staging -f docker-compose.staging.yml exec -T backend wget -qO- http://localhost:3002/health > /dev/null 2>&1; then
+            for i in $(seq 1 20); do
+              if docker compose -p staging -f docker-compose.staging.yml exec -T backend wget -qO- http://127.0.0.1:3002/health > /dev/null 2>&1; then
                 echo "✅ Backend healthy"
                 break
               fi
-              echo "Backend attempt \$i/20..."
+              echo "Backend attempt $i/20..."
               sleep 5
             done
 
-            echo "Waiting frontend on staging port 8080..."
-            for i in \$(seq 1 20); do
-              if curl -fsS http://localhost:8080 > /dev/null 2>&1; then
-                echo "✅ Frontend reachable on 8080"
+            echo "Waiting staging origin on 127.0.0.1:8080..."
+            for i in $(seq 1 20); do
+              if curl -fsS http://127.0.0.1:8080/health > /dev/null 2>&1; then
+                echo "✅ Staging origin reachable on 8080"
+                break
+              fi
+              echo "Origin attempt $i/20..."
+              sleep 5
+            done
+
+            echo "Waiting staging gateway..."
+            for i in $(seq 1 20); do
+              if curl -kfsS -H "Host: staging.dockerfx.trade" https://127.0.0.1/ > /dev/null 2>&1; then
+                echo "✅ Staging gateway reachable"
                 exit 0
               fi
-              echo "Frontend attempt \$i/20..."
+              echo "Gateway attempt $i/20..."
               sleep 5
             done
 
-            echo "❌ Staging healthcheck failed"
-            docker compose -p staging -f docker-compose.staging.yml ps
-            docker compose -p staging -f docker-compose.staging.yml logs --no-color
+            echo "❌ Staging gateway healthcheck failed"
+            docker compose -p staging -f docker-compose.staging.yml ps || true
+            docker compose -p staging -f docker-compose.staging.yml logs --no-color || true
             exit 1
-          EOF
+          EOFSSH
+
+      - name: Verify public staging URL from runner
+        run: |
+          echo "Checking https://staging.dockerfx.trade from GitHub runner..."
+          for i in $(seq 1 12); do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+              --connect-timeout 5 \
+              --max-time 10 \
+              https://staging.dockerfx.trade/ || true)
+
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
+              echo "✅ Staging public URL reachable (HTTP $HTTP_CODE)"
+              exit 0
+            fi
+
+            echo "Attempt $i/12... HTTP=$HTTP_CODE"
+            sleep 5
+          done
+
+          echo "❌ Staging public URL healthcheck failed"
+          exit 1
 
       - name: Show running containers
+        if: always()
         run: |
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
             'cd ~/dockerFX && docker compose -p staging -f docker-compose.staging.yml ps'
@@ -90,4 +135,4 @@ jobs:
         if: failure()
         run: |
           ssh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'cd ~/dockerFX && docker compose -p staging -f docker-compose.staging.yml logs --no-color'
+            "cd ~/dockerFX && docker compose -p staging -f docker-compose.staging.yml logs --no-color && docker service ls && docker service ps ict-prod_frontend --no-trunc || true"

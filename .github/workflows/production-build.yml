@@ -5,9 +5,14 @@ on:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Tag Git à builder (ex: v1.4.7)"
+        required: true
+        type: string
 
 concurrency:
-  group: production-build-${{ github.ref }}
+  group: production-build-${{ github.ref || github.event.inputs.version }}
   cancel-in-progress: false
 
 permissions:
@@ -21,11 +26,20 @@ jobs:
     steps:
       - name: Checkout tagged commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', github.event.inputs.version) || github.ref }}
 
       - name: Extract version from tag
         id: meta
         run: |
-          VERSION="${GITHUB_REF_NAME}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME}"
+          fi
+
+          echo "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || (echo "Tag invalide: $VERSION" && exit 1)
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend" >> "$GITHUB_OUTPUT"
           echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend" >> "$GITHUB_OUTPUT"

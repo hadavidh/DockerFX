@@ -4,9 +4,11 @@
 # Déploie :
 # - PROD sur Docker Swarm derrière un gateway Nginx hôte
 # - STAGING sur Docker Compose derrière le même gateway
+# - MONITORING Prometheus + Grafana + cAdvisor + Node Exporter
 # Accès final :
 # - https://dockerfx.trade
 # - https://staging.dockerfx.trade
+# - http://135.125.196.204:3000 (Grafana)
 # ════════════════════════════════════════════════════════════════
 
 - name: Configure ICT Trading Dashboard VPS
@@ -166,6 +168,22 @@
         group: ubuntu
         mode: '0700'
       tags: dirs
+
+    - name: Créer les dossiers monitoring
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+      loop:
+        - "{{ project_dir }}/monitoring"
+        - "{{ project_dir }}/monitoring/grafana"
+        - "{{ project_dir }}/monitoring/grafana/provisioning"
+        - "{{ project_dir }}/monitoring/grafana/provisioning/datasources"
+        - "{{ project_dir }}/monitoring/grafana/provisioning/dashboards"
+        - "{{ project_dir }}/monitoring/grafana/dashboards"
+      tags: dirs, monitoring
 
     # ════════════════════════════════════════════════════════════
     # 5. VÉRIFICATION CERTIFICATS
@@ -455,7 +473,7 @@
       tags: staging
 
     # ════════════════════════════════════════════════════════════
-    # 11. VÉRIFICATIONS
+    # 11. VÉRIFICATIONS PROD + STAGING
     # ════════════════════════════════════════════════════════════
 
     - name: Attendre que le gateway HTTPS réponde
@@ -520,7 +538,117 @@
       tags: verify
 
     # ════════════════════════════════════════════════════════════
-    # 12. RÉSUMÉ FINAL
+    # 12. MONITORING — Prometheus + Grafana + cAdvisor + Node Exporter
+    # ════════════════════════════════════════════════════════════
+
+    - name: Copier prometheus.yml
+      copy:
+        src:   "{{ playbook_dir }}/../../monitoring/prometheus.yml"
+        dest:  "{{ project_dir }}/monitoring/prometheus.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0644'
+      tags: monitoring
+
+    - name: Copier datasource Grafana
+      copy:
+        src:   "{{ playbook_dir }}/../../monitoring/grafana/provisioning/datasources/datasource.yml"
+        dest:  "{{ project_dir }}/monitoring/grafana/provisioning/datasources/datasource.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0644'
+      tags: monitoring
+
+    - name: Copier provisioning dashboards Grafana
+      copy:
+        src:   "{{ playbook_dir }}/../../monitoring/grafana/provisioning/dashboards/dashboards.yml"
+        dest:  "{{ project_dir }}/monitoring/grafana/provisioning/dashboards/dashboards.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0644'
+      tags: monitoring
+
+    - name: Copier dashboard JSON ICT Trading
+      copy:
+        src:   "{{ playbook_dir }}/../../monitoring/grafana/dashboards/ict-trading.json"
+        dest:  "{{ project_dir }}/monitoring/grafana/dashboards/ict-trading.json"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0644'
+      tags: monitoring
+
+    - name: Copier docker-compose.monitoring.yml
+      copy:
+        src:   "{{ playbook_dir }}/../../docker-compose.monitoring.yml"
+        dest:  "{{ project_dir }}/docker-compose.monitoring.yml"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0644'
+      tags: monitoring
+
+    - name: Arrêter ancienne stack monitoring si présente
+      shell: |
+        cd {{ project_dir }}
+        docker compose -p monitoring -f docker-compose.monitoring.yml down --remove-orphans || true
+      become_user: ubuntu
+      tags: monitoring
+
+    - name: Pull + démarrer la stack monitoring
+      shell: |
+        cd {{ project_dir }}
+        docker compose -p monitoring -f docker-compose.monitoring.yml pull --quiet
+        docker compose -p monitoring -f docker-compose.monitoring.yml up -d
+      become_user: ubuntu
+      tags: monitoring
+
+    - name: Attendre démarrage Grafana (port 3000)
+      wait_for:
+        port: "{{ grafana_port }}"
+        host: localhost
+        delay: 15
+        timeout: 90
+      tags: monitoring
+
+    - name: Vérifier healthcheck Grafana
+      uri:
+        url: "http://localhost:{{ grafana_port }}/api/health"
+        status_code: 200
+      register: grafana_health
+      retries: 6
+      delay: 5
+      until: grafana_health.status == 200
+      tags: monitoring
+
+    - name: Vérifier que le dashboard ICT Trading est provisionné
+      uri:
+        url: "http://localhost:{{ grafana_port }}/api/search?query=ICT+Trading"
+        user: "{{ grafana_admin_user }}"
+        password: "{{ grafana_admin_password }}"
+        force_basic_auth: yes
+        status_code: 200
+      register: grafana_dash
+      retries: 3
+      delay: 10
+      ignore_errors: yes
+      tags: monitoring
+
+    - name: État containers monitoring
+      shell: |
+        docker compose -p monitoring \
+          -f {{ project_dir }}/docker-compose.monitoring.yml \
+          ps --format "table {{ '{{' }}.Name{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}"
+      register: monitoring_ps
+      become_user: ubuntu
+      changed_when: false
+      tags: monitoring
+
+    - name: Résumé monitoring
+      debug:
+        msg: "{{ monitoring_ps.stdout_lines }}"
+      tags: monitoring
+
+    # ════════════════════════════════════════════════════════════
+    # 13. RÉSUMÉ FINAL
     # ════════════════════════════════════════════════════════════
 
     - name: Afficher le résumé final
@@ -537,8 +665,10 @@
           - "║     https://{{ staging_domain }}                   ║"
           - "║     origin local : http://127.0.0.1:{{ staging_port }} ║"
           - "╠════════════════════════════════════════════════════╣"
-          - "║  📊 Grafana                                        ║"
-          - "║     http://{{ ansible_host }}:3000                 ║"
+          - "║  📊 Grafana Monitoring                             ║"
+          - "║     http://{{ ansible_host }}:{{ grafana_port }}   ║"
+          - "║     Login : {{ grafana_admin_user }} / ***         ║"
+          - "║     Dashboard : ICT Trading Dashboard — Monitoring ║"
           - "╠════════════════════════════════════════════════════╣"
           - "║  🐳 Gateway Nginx hôte                             ║"
           - "║     /etc/nginx/sites-available/dockerfx-gateway.conf ║"
