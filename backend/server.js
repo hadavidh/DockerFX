@@ -13,6 +13,7 @@ const AccountManager  = require('./account-manager')
 const DrawdownMonitor = require('./drawdown-monitor')
 const TelegramBot     = require('./telegram-bot')
 const { loginRoute, requireAuth } = require('./auth')
+const metrics = require('./metrics')
 
 const app    = express()
 const server = http.createServer(app)
@@ -22,6 +23,11 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 app.use(cors())
 app.use(express.json())
 app.post('/api/auth/login', loginRoute)
+app.get('/metrics', async (_, res) => {
+  res.set('Content-Type', metrics.register.contentType)
+  res.end(await metrics.register.metrics())
+})
+
 app.use(requireAuth)
 
 // ── Variables d'environnement ─────────────────────────────────────
