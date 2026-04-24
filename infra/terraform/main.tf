@@ -18,13 +18,8 @@ terraform {
 }
 
 # ════════════════════════════════════════════════════════════════
-# VARIABLES
-# ════════════════════════════════════════════════════════════════
-# (inchangé ici — tes variables existantes restent valides)
-
-# ════════════════════════════════════════════════════════════════
-# GÉNÉRATION — docker-stack.prod.yml (LEGACY Docker SWARM prod)
-# On le garde pour ne rien casser à l'existant
+# GÉNÉRATION — docker-stack.prod.yml
+# PROD derrière un gateway Nginx hôte
 # ════════════════════════════════════════════════════════════════
 
 resource "local_file" "docker_stack_prod" {
@@ -32,23 +27,19 @@ resource "local_file" "docker_stack_prod" {
   file_permission = "0644"
   content         = <<-EOT
     # ╔══════════════════════════════════════════════════════════╗
-    # ║  DOCKER SWARM STACK — PRODUCTION (LEGACY)               ║
+    # ║  DOCKER SWARM STACK — PRODUCTION (GATEWAY READY)        ║
     # ║  Généré automatiquement par Terraform                   ║
     # ║  Ne pas modifier manuellement                           ║
     # ║                                                         ║
-    # ║  Déploiement :                                          ║
-    # ║    docker stack deploy -c docker-stack.prod.yml ict-prod║
-    # ║                                                         ║
-    # ║  Scaling :                                              ║
-    # ║    docker service scale ict-prod_backend=3              ║
+    # ║  Accès public : https://${var.domain_name}              ║
+    # ║  Gateway hôte : 80/443                                  ║
+    # ║  Origin prod  : 127.0.0.1:${var.prod_origin_https_port} ║
     # ╚══════════════════════════════════════════════════════════╝
 
     services:
 
       backend:
-        image: dave67000/ict-trading-backend:latest
-        volumes:
-          - ${var.ssl_dir}:/etc/nginx/ssl:ro
+        image: ${var.backend_image}:latest
         networks:
           - trading-net
         env_file: .env.prod
@@ -63,7 +54,7 @@ resource "local_file" "docker_stack_prod" {
             parallelism: 1
             delay: 5s
           restart_policy:
-            condition: any
+            condition: on-failure
             delay: 5s
             max_attempts: 3
             window: 120s
@@ -75,17 +66,16 @@ resource "local_file" "docker_stack_prod" {
               cpus: '0.1'
               memory: 100M
         healthcheck:
-          test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
+          test: ["CMD", "wget", "-qO-", "http://127.0.0.1:${var.backend_prod_port}/health"]
           interval: 30s
           timeout: 5s
           retries: 3
           start_period: 15s
 
       frontend:
-        image: dave67000/ict-trading-frontend:latest
+        image: ${var.frontend_image}:latest
         ports:
-          - "80:80"
-          - "443:443"
+          - "${var.prod_origin_https_port}:443"
         volumes:
           - ${var.ssl_dir}:/etc/nginx/ssl:ro
         networks:
@@ -98,7 +88,7 @@ resource "local_file" "docker_stack_prod" {
             order: start-first
             failure_action: rollback
           restart_policy:
-            condition: on-failure
+            condition: any
             delay: 5s
             max_attempts: 3
           resources:
@@ -124,7 +114,9 @@ resource "local_file" "docker_stack_prod" {
 
 # ════════════════════════════════════════════════════════════════
 # GÉNÉRATION — docker-compose.staging.yml
-# Compatible avec staging-build.yml / staging-deploy.yml
+# STAGING derrière le gateway Nginx hôte
+# Exposition locale uniquement sur 127.0.0.1:${var.staging_port}
+# Réseau external: true pour éviter le conflit de labels Compose
 # ════════════════════════════════════════════════════════════════
 
 resource "local_file" "docker_compose_staging" {
@@ -132,15 +124,17 @@ resource "local_file" "docker_compose_staging" {
   file_permission = "0644"
   content         = <<-EOT
     # ╔══════════════════════════════════════════════════════════╗
-    # ║  STAGING — ICT Trading Dashboard                        ║
+    # ║  STAGING — ICT Trading Dashboard (GATEWAY READY)        ║
     # ║  Généré automatiquement par Terraform                   ║
-    # ║  Accessible sur http://${var.vps_ip}:${var.staging_port} ║
+    # ║  Accès public : https://${var.staging_domain}           ║
+    # ║  Origin local : http://127.0.0.1:${var.staging_port}    ║
     # ╚══════════════════════════════════════════════════════════╝
 
     services:
 
       backend:
-        image: $${BACKEND_IMAGE:-${var.backend_image}:develop}
+        image: ${var.backend_image}:develop
+        container_name: forex-backend-staging
         restart: unless-stopped
         env_file: .env.staging
         expose:
@@ -149,7 +143,7 @@ resource "local_file" "docker_compose_staging" {
           - PORT=${var.backend_staging_port}
           - NODE_ENV=staging
         healthcheck:
-          test: ["CMD","wget","-qO-","http://localhost:${var.backend_staging_port}/health"]
+          test: ["CMD","wget","-qO-","http://127.0.0.1:${var.backend_staging_port}/health"]
           interval: 30s
           timeout: 5s
           retries: 3
@@ -161,10 +155,11 @@ resource "local_file" "docker_compose_staging" {
           - "project=${var.project_name}"
 
       frontend:
-        image: $${FRONTEND_IMAGE:-${var.frontend_image}:develop}
+        image: ${var.frontend_image}:develop
+        container_name: forex-frontend-staging
         restart: unless-stopped
         ports:
-          - "${var.staging_port}:80"
+          - "127.0.0.1:${var.staging_port}:80"
         volumes:
           - ./frontend/nginx.staging.conf:/etc/nginx/conf.d/default.conf:ro
         depends_on:
@@ -184,81 +179,78 @@ resource "local_file" "docker_compose_staging" {
 }
 
 # ════════════════════════════════════════════════════════════════
-# GÉNÉRATION — docker-compose.prod.yml
-# Compatible avec production-build.yml / production-deploy.yml
+# GÉNÉRATION — dockerfx-gateway.conf
 # ════════════════════════════════════════════════════════════════
 
-resource "local_file" "docker_compose_prod" {
-  filename        = "${path.module}/../../docker-compose.prod.yml"
+resource "local_file" "dockerfx_gateway_conf" {
+  filename        = "${path.module}/../../dockerfx-gateway.conf"
   file_permission = "0644"
   content         = <<-EOT
-    # ╔══════════════════════════════════════════════════════════╗
-    # ║  PRODUCTION — ICT Trading Dashboard                     ║
-    # ║  Généré automatiquement par Terraform                   ║
-    # ║  Accessible sur http://${var.vps_ip}:${var.prod_port}   ║
-    # ╚══════════════════════════════════════════════════════════╝
+    # /etc/nginx/sites-available/dockerfx-gateway.conf
 
-    services:
+    server {
+        listen 80;
+        listen [::]:80;
+        server_name ${var.domain_name} ${var.domain_www} ${var.staging_domain};
 
-      backend:
-        image: $${BACKEND_IMAGE:-${var.backend_image}:latest}
-        restart: unless-stopped
-        env_file: .env.prod
-        expose:
-          - "${var.backend_prod_port}"
-        environment:
-          - PORT=${var.backend_prod_port}
-          - NODE_ENV=production
-        healthcheck:
-          test: ["CMD","wget","-qO-","http://127.0.0.1:${var.backend_prod_port}/health"]
-          interval: 30s
-          timeout: 5s
-          retries: 3
-          start_period: 10s
-        networks:
-          - trading-prod
-        labels:
-          - "environment=production"
-          - "project=${var.project_name}"
+        return 301 https://$host$request_uri;
+    }
 
-      frontend:
-        image: $${FRONTEND_IMAGE:-${var.frontend_image}:latest}
-        restart: unless-stopped
-        ports:
-          - "${var.prod_port}:80"
-          - "${var.prod_https_port}:443"
-        volumes:
-          - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-        depends_on:
-          backend:
-            condition: service_healthy
-        networks:
-          - trading-prod
-        labels:
-          - "environment=production"
-          - "project=${var.project_name}"
+    server {
+        listen 443 ssl;
+        listen [::]:443 ssl;
+        http2 on;
+        server_name ${var.domain_name} ${var.domain_www};
 
-    networks:
-      trading-prod:
-        external: true
-        name: trading-prod
+        ssl_certificate     ${var.ssl_dir}/cloudflare-origin.crt;
+        ssl_certificate_key ${var.ssl_dir}/cloudflare-origin.key;
+
+        location / {
+            proxy_pass https://127.0.0.1:${var.prod_origin_https_port};
+            proxy_ssl_verify off;
+
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+    }
+
+    server {
+        listen 443 ssl;
+        listen [::]:443 ssl;
+        http2 on;
+        server_name ${var.staging_domain};
+
+        ssl_certificate     ${var.ssl_dir}/cloudflare-origin.crt;
+        ssl_certificate_key ${var.ssl_dir}/cloudflare-origin.key;
+
+        location / {
+            proxy_pass http://127.0.0.1:${var.staging_port};
+
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-Proto https;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+        }
+    }
   EOT
 }
 
 # ════════════════════════════════════════════════════════════════
 # GÉNÉRATION — frontend/nginx.conf
-# PROD — utilisé dans l'image Docker / ou monté en compose prod
 # ════════════════════════════════════════════════════════════════
 
 resource "local_file" "nginx_frontend_prod" {
   filename        = "${path.module}/../../frontend/nginx.conf"
   file_permission = "0644"
   content         = <<-EOT
-    # ╔══════════════════════════════════════════════════════════╗
-    # ║  NGINX — Config PRODUCTION HTTPS                        ║
-    # ║  Généré automatiquement par Terraform                   ║
-    # ╚══════════════════════════════════════════════════════════╝
-
     server {
         listen 80;
         server_name ${var.domain_name} ${var.domain_www};
@@ -278,7 +270,7 @@ resource "local_file" "nginx_frontend_prod" {
         index index.html;
 
         resolver 127.0.0.11 valid=30s ipv6=off;
-        set $backend "backend:3001";
+        set $backend "backend:${var.backend_prod_port}";
 
         location / {
             try_files $uri $uri/ /index.html;
@@ -305,7 +297,8 @@ resource "local_file" "nginx_frontend_prod" {
         }
 
         location /health {
-            proxy_pass http://$backend/health;
+            return 200 "ok\n";
+            add_header Content-Type text/plain;
         }
 
         location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ {
@@ -320,28 +313,21 @@ resource "local_file" "nginx_frontend_prod" {
 
 # ════════════════════════════════════════════════════════════════
 # GÉNÉRATION — frontend/nginx.staging.conf
-# STAGING — upstream = backend (service Compose)
 # ════════════════════════════════════════════════════════════════
 
 resource "local_file" "nginx_frontend_staging" {
   filename        = "${path.module}/../../frontend/nginx.staging.conf"
   file_permission = "0644"
   content         = <<-EOT
-    # ╔══════════════════════════════════════════════════════════╗
-    # ║  NGINX — Config STAGING (montée en volume)              ║
-    # ║  Upstream = backend (service Docker Compose)            ║
-    # ║  Généré automatiquement par Terraform                   ║
-    # ╚══════════════════════════════════════════════════════════╝
-
     server {
         listen 80;
-        server_name _;
+        server_name ${var.staging_domain};
 
         root /usr/share/nginx/html;
         index index.html;
 
         resolver 127.0.0.11 valid=30s ipv6=off;
-        set $backend_staging "backend:${var.backend_staging_port}";
+        set $backend_staging "forex-backend-staging:${var.backend_staging_port}";
 
         location / {
             try_files $uri $uri/ /index.html;
@@ -392,16 +378,19 @@ resource "local_file" "ansible_inventory" {
           ansible_user:       ${var.vps_user}
 
       vars:
-        project_name:     ${var.project_name}
-        project_dir:      /home/${var.vps_user}/dockerFX
-        prod_port:        ${var.prod_port}
-        prod_https_port:  ${var.prod_https_port}
-        staging_port:     ${var.staging_port}
-        backend_image:    ${var.backend_image}
-        frontend_image:   ${var.frontend_image}
-        domain_name:      ${var.domain_name}
-        domain_www:       ${var.domain_www}
-        ssl_dir:          ${var.ssl_dir}
+        project_name:            ${var.project_name}
+        project_dir:             /home/${var.vps_user}/dockerFX
+        prod_port:               ${var.prod_port}
+        prod_https_port:         ${var.prod_https_port}
+        prod_origin_https_port:  ${var.prod_origin_https_port}
+        staging_port:            ${var.staging_port}
+        backend_image:           ${var.backend_image}
+        frontend_image:          ${var.frontend_image}
+        domain_name:             ${var.domain_name}
+        domain_www:              ${var.domain_www}
+        staging_domain:          ${var.staging_domain}
+        ssl_dir:                 ${var.ssl_dir}
+        gateway_conf_path:       /etc/nginx/sites-available/dockerfx-gateway.conf
   EOT
 }
 
@@ -413,11 +402,6 @@ resource "local_file" "env_staging_example" {
   filename        = "${path.module}/../../.env.staging.example"
   file_permission = "0644"
   content         = <<-EOT
-    # STAGING — Template variables d'environnement
-    # Généré par Terraform
-    # Copier en .env.staging et remplir les valeurs réelles
-    # Ne jamais committer .env.staging dans Git
-
     PORT=${var.backend_staging_port}
     NODE_ENV=staging
 
@@ -448,16 +432,13 @@ resource "local_file" "env_staging_example" {
   EOT
 }
 
-# ════════════════════════════════════════════════════════════════
-# RÉSUMÉ — Affiché après terraform apply
-# ════════════════════════════════════════════════════════════════
-
 resource "null_resource" "summary" {
   triggers = {
-    stack_hash        = local_file.docker_stack_prod.content
-    staging_hash      = local_file.docker_compose_staging.content
-    prod_compose_hash = local_file.docker_compose_prod.content
-    nginx_hash        = local_file.nginx_frontend_prod.content
+    stack_hash     = local_file.docker_stack_prod.content
+    staging_hash   = local_file.docker_compose_staging.content
+    gateway_hash   = local_file.dockerfx_gateway_conf.content
+    nginx_hash     = local_file.nginx_frontend_prod.content
+    inventory_hash = local_file.ansible_inventory.content
   }
 
   provisioner "local-exec" {
@@ -467,17 +448,17 @@ resource "null_resource" "summary" {
       echo "║  ✅  Terraform apply terminé                     ║"
       echo "╠══════════════════════════════════════════════════╣"
       echo "║  Fichiers générés :                              ║"
-      echo "║    docker-stack.prod.yml       (legacy Swarm)    ║"
-      echo "║    docker-compose.staging.yml  (staging Compose) ║"
-      echo "║    docker-compose.prod.yml     (prod Compose)    ║"
-      echo "║    frontend/nginx.conf         (prod Nginx)      ║"
-      echo "║    frontend/nginx.staging.conf (staging Nginx)   ║"
+      echo "║    docker-stack.prod.yml      (prod gateway)     ║"
+      echo "║    docker-compose.staging.yml (staging external) ║"
+      echo "║    dockerfx-gateway.conf      (nginx hôte)       ║"
+      echo "║    frontend/nginx.conf        (prod HTTPS)       ║"
+      echo "║    frontend/nginx.staging.conf (staging)         ║"
       echo "║    infra/ansible/inventory.yml                   ║"
       echo "║    .env.staging.example                          ║"
       echo "╠══════════════════════════════════════════════════╣"
-      echo "║  Prochaine étape :                               ║"
-      echo "║    vérifier les workflows GitHub Actions         ║"
-      echo "║    puis déployer staging / production            ║"
+      echo "║  Accès cible :                                   ║"
+      echo "║    PROD    : https://${var.domain_name}          ║"
+      echo "║    STAGING : https://${var.staging_domain}       ║"
       echo "╚══════════════════════════════════════════════════╝"
       echo ""
     EOT
@@ -486,7 +467,7 @@ resource "null_resource" "summary" {
   depends_on = [
     local_file.docker_stack_prod,
     local_file.docker_compose_staging,
-    local_file.docker_compose_prod,
+    local_file.dockerfx_gateway_conf,
     local_file.nginx_frontend_prod,
     local_file.nginx_frontend_staging,
     local_file.ansible_inventory,

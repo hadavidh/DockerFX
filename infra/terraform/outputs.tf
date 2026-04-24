@@ -3,14 +3,19 @@ output "prod_url" {
   value       = "https://${var.domain_name}"
 }
 
-output "prod_http_url" {
-  description = "URL HTTP production (redirigée vers HTTPS)"
-  value       = "http://${var.domain_name}"
-}
-
 output "staging_url" {
   description = "URL de staging"
-  value       = "http://${var.vps_ip}:${var.staging_port}"
+  value       = "https://${var.staging_domain}"
+}
+
+output "prod_origin_url" {
+  description = "URL origin prod locale derrière le gateway"
+  value       = "https://127.0.0.1:${var.prod_origin_https_port}"
+}
+
+output "staging_origin_url" {
+  description = "URL origin staging locale derrière le gateway"
+  value       = "http://127.0.0.1:${var.staging_port}"
 }
 
 output "ssl_directory" {
@@ -23,6 +28,7 @@ output "files_generated" {
   value = [
     "docker-stack.prod.yml",
     "docker-compose.staging.yml",
+    "dockerfx-gateway.conf",
     "frontend/nginx.conf",
     "frontend/nginx.staging.conf",
     "infra/ansible/inventory.yml",

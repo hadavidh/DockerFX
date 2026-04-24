@@ -1,17 +1,12 @@
 ---
 # ════════════════════════════════════════════════════════════════
 # infra/ansible/playbook.yml
-# Configure le VPS OVH — installe Docker, déploie prod + staging
-#
-# Usage :
-#   ansible-playbook -i inventory.yml playbook.yml
-#
-# Tags disponibles :
-#   system, docker, firewall, dirs, config, env, swarm, staging, verify
-#
-# Exemples :
-#   ansible-playbook -i inventory.yml playbook.yml --tags swarm
-#   ansible-playbook -i inventory.yml playbook.yml --tags staging
+# Déploie :
+# - PROD sur Docker Swarm derrière un gateway Nginx hôte
+# - STAGING sur Docker Compose derrière le même gateway
+# Accès final :
+# - https://dockerfx.trade
+# - https://staging.dockerfx.trade
 # ════════════════════════════════════════════════════════════════
 
 - name: Configure ICT Trading Dashboard VPS
@@ -43,7 +38,7 @@
           - nano
           - htop
           - ufw
-          - certbot
+          - nginx
           - python3-certbot-nginx
         state: present
       tags: system
@@ -95,25 +90,27 @@
         proto: tcp
       tags: firewall
 
-    - name: Firewall — autoriser HTTP (production)
+    - name: Firewall — autoriser HTTP public
       ufw:
         rule: allow
         port: "80"
         proto: tcp
       tags: firewall
 
-    - name: Firewall — autoriser HTTPS
+    - name: Firewall — autoriser HTTPS public
       ufw:
         rule: allow
         port: "443"
         proto: tcp
       tags: firewall
 
-    - name: Firewall — autoriser Staging (port 8080)
+    - name: Firewall — retirer exposition publique staging 8080 si présente
       ufw:
         rule: allow
         port: "8080"
         proto: tcp
+        delete: yes
+      ignore_errors: yes
       tags: firewall
 
     - name: Firewall — autoriser Grafana (port 3000)
@@ -143,21 +140,13 @@
         mode: '0755'
       tags: dirs
 
-    - name: Créer le dossier data (persistance)
+    - name: Créer le dossier data
       file:
         path: "{{ data_dir }}"
         state: directory
         owner: ubuntu
         group: ubuntu
         mode: '0755'
-      tags: dirs
-
-    - name: Créer le dossier nginx
-      file:
-        path: "{{ project_dir }}/nginx"
-        state: directory
-        owner: ubuntu
-        group: ubuntu
       tags: dirs
 
     - name: Créer le dossier frontend
@@ -177,6 +166,10 @@
         group: ubuntu
         mode: '0700'
       tags: dirs
+
+    # ════════════════════════════════════════════════════════════
+    # 5. VÉRIFICATION CERTIFICATS
+    # ════════════════════════════════════════════════════════════
 
     - name: Vérifier la présence du certificat Cloudflare Origin
       stat:
@@ -199,7 +192,7 @@
       tags: config
 
     # ════════════════════════════════════════════════════════════
-    # 5. COPIE DES FICHIERS DE CONFIG (générés par Terraform)
+    # 6. COPIE DES FICHIERS GÉNÉRÉS
     # ════════════════════════════════════════════════════════════
 
     - name: Copier docker-compose.staging.yml
@@ -220,14 +213,14 @@
         mode:  '0644'
       tags: config
 
-#     - name: Copier nginx.conf
-#       copy:
-#         src:   "{{ playbook_dir }}/../../nginx/nginx.conf"
-#         dest:  "{{ project_dir }}/nginx/nginx.conf"
-#         owner: ubuntu
-#         group: ubuntu
-#         mode:  '0644'
-#       tags: config
+    - name: Copier dockerfx-gateway.conf
+      copy:
+        src:   "{{ playbook_dir }}/../../dockerfx-gateway.conf"
+        dest:  "{{ project_dir }}/dockerfx-gateway.conf"
+        owner: ubuntu
+        group: ubuntu
+        mode:  '0644'
+      tags: config
 
     - name: Copier nginx.staging.conf
       copy:
@@ -239,7 +232,47 @@
       tags: config
 
     # ════════════════════════════════════════════════════════════
-    # 6. FICHIERS .env
+    # 7. GATEWAY NGINX HÔTE
+    # ════════════════════════════════════════════════════════════
+
+    - name: Installer la conf gateway dans sites-available
+      copy:
+        src:   "{{ project_dir }}/dockerfx-gateway.conf"
+        dest:  "{{ gateway_conf_path }}"
+        remote_src: true
+        owner: root
+        group: root
+        mode:  '0644'
+      tags: gateway
+
+    - name: Activer la conf gateway
+      file:
+        src: "{{ gateway_conf_path }}"
+        dest: /etc/nginx/sites-enabled/dockerfx-gateway.conf
+        state: link
+        force: true
+      tags: gateway
+
+    - name: Désactiver le site Nginx par défaut
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      tags: gateway
+
+    - name: Valider la configuration Nginx hôte
+      command: nginx -t
+      changed_when: false
+      tags: gateway
+
+    - name: Démarrer et recharger Nginx hôte
+      systemd:
+        name: nginx
+        state: reloaded
+        enabled: yes
+      tags: gateway
+
+    # ════════════════════════════════════════════════════════════
+    # 8. FICHIERS .env
     # ════════════════════════════════════════════════════════════
 
     - name: Vérifier si .env.prod existe
@@ -277,35 +310,30 @@
       tags: env
 
     # ════════════════════════════════════════════════════════════
-    # 7. DOCKER SWARM — Production (2 replica backend + 2 frontend)
+    # 9. SWARM PROD
     # ════════════════════════════════════════════════════════════
 
     - name: Vérifier si Swarm est déjà initialisé
-      command: docker info --format '{{ '{{' }}.Swarm.LocalNodeState{{ '}}' }}'
+      command: docker info --format '{{ "{{" }}.Swarm.LocalNodeState{{ "}}" }}'
       register: swarm_state
       changed_when: false
       become_user: ubuntu
       tags: swarm
 
-    - name: Initialiser Docker Swarm
-      command: docker swarm init --advertise-addr 135.125.196.204
+    - name: Initialiser Docker Swarm si nécessaire
+      shell: docker swarm init || true
       when: swarm_state.stdout != "active"
       become_user: ubuntu
       tags: swarm
 
-    - name: Swarm initialisé — afficher statut
-      debug:
-        msg: "Docker Swarm actif ✅ ({{ swarm_state.stdout }})"
-      tags: swarm
-
     - name: Pull image backend depuis DockerHub
-      shell: docker pull dave67000/ict-trading-backend:latest
+      shell: docker pull {{ backend_image }}:latest
       become_user: ubuntu
       ignore_errors: yes
       tags: swarm
 
     - name: Pull image frontend depuis DockerHub
-      shell: docker pull dave67000/ict-trading-frontend:latest
+      shell: docker pull {{ frontend_image }}:latest
       become_user: ubuntu
       ignore_errors: yes
       tags: swarm
@@ -323,7 +351,7 @@
       become_user: ubuntu
       tags: swarm
 
-    - name: Déployer la stack Swarm — PRODUCTION
+    - name: Déployer la stack Swarm — PRODUCTION gateway-ready
       shell: |
         cd {{ project_dir }}
         docker stack deploy \
@@ -393,7 +421,7 @@
       tags: swarm
 
     # ════════════════════════════════════════════════════════════
-    # 8. DOCKER COMPOSE — Staging (simple, pas de Swarm)
+    # 10. COMPOSE STAGING
     # ════════════════════════════════════════════════════════════
 
     - name: Pull images Docker — staging
@@ -427,10 +455,10 @@
       tags: staging
 
     # ════════════════════════════════════════════════════════════
-    # 9. VÉRIFICATIONS
+    # 11. VÉRIFICATIONS
     # ════════════════════════════════════════════════════════════
 
-    - name: Attendre que la production HTTPS réponde (port 443)
+    - name: Attendre que le gateway HTTPS réponde
       wait_for:
         port: 443
         host: localhost
@@ -438,29 +466,53 @@
         timeout: 90
       tags: verify
 
-    - name: Attendre que le staging réponde (port 8080)
+    - name: Attendre que l'origin prod HTTPS réponde (8443)
       wait_for:
-        port: 8080
+        port: "{{ prod_origin_https_port }}"
+        host: localhost
+        delay: 5
+        timeout: 90
+      tags: verify
+
+    - name: Attendre que l'origin staging réponde (8080)
+      wait_for:
+        port: "{{ staging_port }}"
         host: localhost
         delay: 5
         timeout: 60
       ignore_errors: yes
       tags: verify
 
-    - name: Vérifier la page d'accueil production en HTTPS (origin local)
+    - name: Vérifier la page d'accueil production via gateway
       uri:
         url: "https://127.0.0.1/"
+        headers:
+          Host: "{{ domain_name }}"
         status_code: 200
         validate_certs: false
-      register: prod_https_check
+      register: prod_gateway_check
       retries: 8
       delay: 5
-      until: prod_https_check.status == 200
+      until: prod_gateway_check.status == 200
       tags: verify
 
-    - name: Vérifier health check staging
+    - name: Vérifier la page d'accueil staging via gateway
       uri:
-        url: "http://127.0.0.1:8080/health"
+        url: "https://127.0.0.1/"
+        headers:
+          Host: "{{ staging_domain }}"
+        status_code: 200
+        validate_certs: false
+      register: staging_gateway_check
+      retries: 8
+      delay: 5
+      until: staging_gateway_check.status == 200
+      ignore_errors: yes
+      tags: verify
+
+    - name: Vérifier health check staging origin local
+      uri:
+        url: "http://127.0.0.1:{{ staging_port }}/health"
         status_code: 200
       retries: 5
       delay: 5
@@ -468,27 +520,27 @@
       tags: verify
 
     # ════════════════════════════════════════════════════════════
-    # 10. RÉSUMÉ FINAL
+    # 12. RÉSUMÉ FINAL
     # ════════════════════════════════════════════════════════════
 
     - name: Afficher le résumé final
       debug:
         msg:
-          - "╔══════════════════════════════════════════════╗"
-          - "║  ✅  Déploiement terminé !                   ║"
-          - "╠══════════════════════════════════════════════╣"
-          - "║  🟢 Production (Swarm)                       ║"
-          - "║     https://dockerfx.trade                   ║"
-          - "║     backend  : 2 replicas attendues          ║"
-          - "║     frontend : 2 replicas attendues          ║"
-          - "╠══════════════════════════════════════════════╣"
-          - "║  🔵 Staging (Compose)                        ║"
-          - "║     http://localhost:8080                    ║"
-          - "╠══════════════════════════════════════════════╣"
-          - "║  📊 Grafana                                  ║"
-          - "║     http://localhost:3000                    ║"
-          - "╠══════════════════════════════════════════════╣"
-          - "║  🐳 Swarm scaling :                          ║"
-          - "║  docker service scale ict-prod_backend=3     ║"
-          - "╚══════════════════════════════════════════════╝"
+          - "╔════════════════════════════════════════════════════╗"
+          - "║  ✅  Déploiement gateway-ready terminé !          ║"
+          - "╠════════════════════════════════════════════════════╣"
+          - "║  🟢 Production (Swarm)                             ║"
+          - "║     https://{{ domain_name }}                      ║"
+          - "║     origin local : https://127.0.0.1:{{ prod_origin_https_port }} ║"
+          - "╠════════════════════════════════════════════════════╣"
+          - "║  🔵 Staging (Compose)                              ║"
+          - "║     https://{{ staging_domain }}                   ║"
+          - "║     origin local : http://127.0.0.1:{{ staging_port }} ║"
+          - "╠════════════════════════════════════════════════════╣"
+          - "║  📊 Grafana                                        ║"
+          - "║     http://{{ ansible_host }}:3000                 ║"
+          - "╠════════════════════════════════════════════════════╣"
+          - "║  🐳 Gateway Nginx hôte                             ║"
+          - "║     /etc/nginx/sites-available/dockerfx-gateway.conf ║"
+          - "╚════════════════════════════════════════════════════╝"
       tags: always

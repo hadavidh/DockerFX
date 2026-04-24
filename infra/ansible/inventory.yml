@@ -8,13 +8,16 @@ all:
       ansible_user:       ubuntu
 
   vars:
-    project_name:     ict-trading
-    project_dir:      /home/ubuntu/dockerFX
-    prod_port:        80
-    prod_https_port:  443
-    staging_port:     8080
-    backend_image:    dave67000/ict-trading-backend
-    frontend_image:   dave67000/ict-trading-frontend
-    domain_name:      dockerfx.trade
-    domain_www:       www.dockerfx.trade
-    ssl_dir:          /home/ubuntu/dockerFX/ssl
+    project_name:            ict-trading
+    project_dir:             /home/ubuntu/dockerFX
+    prod_port:               80
+    prod_https_port:         443
+    prod_origin_https_port:  8443
+    staging_port:            8080
+    backend_image:           dave67000/ict-trading-backend
+    frontend_image:          dave67000/ict-trading-frontend
+    domain_name:             dockerfx.trade
+    domain_www:              www.dockerfx.trade
+    staging_domain:          staging.dockerfx.trade
+    ssl_dir:                 /home/ubuntu/dockerFX/ssl
+    gateway_conf_path:       /etc/nginx/sites-available/dockerfx-gateway.conf

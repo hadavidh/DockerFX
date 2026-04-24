@@ -40,6 +40,12 @@ variable "domain_www" {
   default     = "www.dockerfx.trade"
 }
 
+variable "staging_domain" {
+  description = "Nom de domaine du staging"
+  type        = string
+  default     = "staging.dockerfx.trade"
+}
+
 variable "ssl_dir" {
   description = "Dossier VPS contenant les certificats Cloudflare Origin CA"
   type        = string
@@ -47,19 +53,25 @@ variable "ssl_dir" {
 }
 
 variable "prod_port" {
-  description = "Port HTTP production"
+  description = "Port HTTP public du gateway"
   type        = number
   default     = 80
 }
 
 variable "prod_https_port" {
-  description = "Port HTTPS production"
+  description = "Port HTTPS public du gateway"
   type        = number
   default     = 443
 }
 
+variable "prod_origin_https_port" {
+  description = "Port HTTPS interne de l'origin prod, derrière le gateway"
+  type        = number
+  default     = 8443
+}
+
 variable "staging_port" {
-  description = "Port HTTP staging"
+  description = "Port HTTP local du staging, consommé par le gateway"
   type        = number
   default     = 8080
 }
