@@ -651,6 +651,201 @@ resource "local_file" "grafana_dashboard_json" {
 # RÉSUMÉ TERRAFORM
 # ════════════════════════════════════════════════════════════════
 
+
+# ════════════════════════════════════════════════════════════════
+# ALERTING — Contact Point Telegram
+# Note : chatid injecté via var.telegram_chatid (string Terraform)
+#        pour éviter que Grafana le lise comme integer JSON
+# ════════════════════════════════════════════════════════════════
+
+resource "local_file" "grafana_alerting_contactpoint" {
+  filename        = "${path.module}/../../monitoring/grafana/provisioning/alerting/contactpoints.yml"
+  file_permission = "0644"
+  content         = <<-EOT
+    apiVersion: 1
+
+    contactPoints:
+      - orgId: 1
+        name: Telegram Trading
+        receivers:
+          - uid: telegram-trading-uid
+            type: telegram
+            settings:
+              bottoken: "${var.telegram_token}"
+              chatid: "${var.telegram_chatid}"
+              parse_mode: Markdown
+            disableResolveMessage: false
+  EOT
+}
+
+# ════════════════════════════════════════════════════════════════
+# ALERTING — Notification Policy
+# ════════════════════════════════════════════════════════════════
+
+resource "local_file" "grafana_alerting_policy" {
+  filename        = "${path.module}/../../monitoring/grafana/provisioning/alerting/policies.yml"
+  file_permission = "0644"
+  content         = <<-EOT
+    apiVersion: 1
+
+    policies:
+      - orgId: 1
+        receiver: Telegram Trading
+        group_by: ['alertname', 'severity']
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 1h
+        routes:
+          - receiver: Telegram Trading
+            matchers:
+              - severity =~ "critical|warning"
+            continue: false
+  EOT
+}
+
+# ════════════════════════════════════════════════════════════════
+# ALERTING — 3 règles : cTrader · RAM Backend · Container Restart
+# ════════════════════════════════════════════════════════════════
+
+resource "local_file" "grafana_alerting_rules" {
+  filename        = "${path.module}/../../monitoring/grafana/provisioning/alerting/rules.yml"
+  file_permission = "0644"
+  content         = <<-EOT
+    apiVersion: 1
+
+    groups:
+
+      - orgId: 1
+        name: critical
+        folder: ICT Trading
+        interval: 1m
+        rules:
+          - uid: ctrader-disconnected-uid
+            title: "cTrader Déconnecté"
+            condition: C
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "cTrader déconnecté depuis 5 minutes"
+              description: "Les ordres AUTO sont en mode SIMULATION. Vérifier token FTMO."
+            data:
+              - refId: A
+                datasourceUid: ${var.grafana_datasource_uid}
+                model:
+                  expr: trading_ctrader_connected
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: C
+                datasourceUid: "__expr__"
+                model:
+                  conditions:
+                    - evaluator:
+                        params: [1]
+                        type: lt
+                      operator:
+                        type: and
+                      query:
+                        params: [A]
+                      reducer:
+                        type: last
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  refId: C
+                  type: classic_conditions
+
+      - orgId: 1
+        name: infrastructure
+        folder: ICT Trading
+        interval: 1m
+        rules:
+
+          - uid: ram-backend-critical-uid
+            title: "RAM Backend Critique"
+            condition: C
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "RAM backend critique (270Mo/300Mo)"
+              description: "Container proche de la limite Docker. OOM Kill imminent."
+            data:
+              - refId: A
+                datasourceUid: ${var.grafana_datasource_uid}
+                model:
+                  expr: "container_memory_usage_bytes{name=~\"ict-prod_backend.*\"} / 1024 / 1024"
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: C
+                datasourceUid: "__expr__"
+                model:
+                  conditions:
+                    - evaluator:
+                        params: [270]
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params: [A]
+                      reducer:
+                        type: last
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  refId: C
+                  type: classic_conditions
+
+          - uid: container-restart-uid
+            title: "Container Restart Inattendu"
+            condition: C
+            for: 1m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Container ict-prod a redémarré"
+              description: "Vérifier : docker service logs ict-prod_backend --tail 50"
+            data:
+              - refId: A
+                datasourceUid: ${var.grafana_datasource_uid}
+                model:
+                  expr: "increase(container_start_time_seconds{name=~\"ict-prod.*\"}[10m])"
+                  intervalMs: 1000
+                  maxDataPoints: 43200
+                  refId: A
+              - refId: C
+                datasourceUid: "__expr__"
+                model:
+                  conditions:
+                    - evaluator:
+                        params: [0]
+                        type: gt
+                      operator:
+                        type: and
+                      query:
+                        params: [A]
+                      reducer:
+                        type: last
+                      type: query
+                  datasource:
+                    type: __expr__
+                    uid: __expr__
+                  expression: A
+                  refId: C
+                  type: classic_conditions
+  EOT
+}
+
+# ════════════════════════════════════════════════════════════════
+# RÉSUMÉ TERRAFORM
+# ════════════════════════════════════════════════════════════════
+
 resource "null_resource" "summary" {
   triggers = {
     stack_hash      = local_file.docker_stack_prod.content
@@ -659,6 +854,7 @@ resource "null_resource" "summary" {
     nginx_hash      = local_file.nginx_frontend_prod.content
     inventory_hash  = local_file.ansible_inventory.content
     monitoring_hash = local_file.docker_compose_monitoring.content
+    alerting_hash   = local_file.grafana_alerting_rules.content
   }
 
   provisioner "local-exec" {
@@ -668,20 +864,31 @@ resource "null_resource" "summary" {
       echo "║  ✅  Terraform apply terminé                     ║"
       echo "╠══════════════════════════════════════════════════╣"
       echo "║  Fichiers générés :                              ║"
-      echo "║    docker-stack.prod.yml      (prod gateway)     ║"
-      echo "║    docker-compose.staging.yml (staging)          ║"
-      echo "║    docker-compose.monitoring.yml (monitoring)    ║"
-      echo "║    dockerfx-gateway.conf      (nginx hôte)       ║"
-      echo "║    frontend/nginx.conf        (prod HTTPS)       ║"
-      echo "║    frontend/nginx.staging.conf (staging)         ║"
+      echo "║    docker-stack.prod.yml                         ║"
+      echo "║    docker-compose.staging.yml                    ║"
+      echo "║    docker-compose.monitoring.yml                 ║"
+      echo "║    dockerfx-gateway.conf                         ║"
+      echo "║    frontend/nginx.conf                           ║"
+      echo "║    frontend/nginx.staging.conf                   ║"
       echo "║    infra/ansible/inventory.yml                   ║"
       echo "║    monitoring/prometheus.yml                     ║"
-      echo "║    monitoring/grafana/...                        ║"
+      echo "║    monitoring/grafana/provisioning/...           ║"
+      echo "║      datasources/datasource.yml                  ║"
+      echo "║      dashboards/dashboards.yml                   ║"
+      echo "║      alerting/contactpoints.yml  (Telegram)      ║"
+      echo "║      alerting/policies.yml                       ║"
+      echo "║      alerting/rules.yml (3 alertes)              ║"
+      echo "║    monitoring/grafana/dashboards/ict-trading.json║"
       echo "╠══════════════════════════════════════════════════╣"
       echo "║  Accès :                                         ║"
       echo "║    PROD    : https://${var.domain_name}          ║"
       echo "║    STAGING : https://${var.staging_domain}       ║"
       echo "║    GRAFANA : http://${var.vps_ip}:${var.grafana_port}  ║"
+      echo "╠══════════════════════════════════════════════════╣"
+      echo "║  Alertes Telegram :                              ║"
+      echo "║    🔴 cTrader Déconnecté  (5 min)                ║"
+      echo "║    🟡 RAM Backend > 270Mo (2 min)                ║"
+      echo "║    🟢 Container Restart   (1 min)                ║"
       echo "╚══════════════════════════════════════════════════╝"
       echo ""
     EOT
@@ -700,5 +907,8 @@ resource "null_resource" "summary" {
     local_file.grafana_datasource,
     local_file.grafana_dashboards_provisioning,
     local_file.grafana_dashboard_json,
+    local_file.grafana_alerting_contactpoint,
+    local_file.grafana_alerting_policy,
+    local_file.grafana_alerting_rules,
   ]
 }

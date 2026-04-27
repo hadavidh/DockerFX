@@ -128,3 +128,21 @@ variable "grafana_datasource_uid" {
   type        = string
   default     = "PBFA97CFB590B2093"
 }
+
+# ════════════════════════════════════════════════════════════════
+# VARIABLES ALERTING TELEGRAM
+# Fix chatid : type string pour éviter que Grafana lise un integer
+# ════════════════════════════════════════════════════════════════
+
+variable "telegram_token" {
+  description = "Token du bot Telegram pour les alertes Grafana"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "telegram_chatid" {
+  description = "Chat ID Telegram — string forcée pour Grafana (évite integer YAML)"
+  type        = string
+  default     = ""
+}

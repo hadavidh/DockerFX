@@ -1,0 +1,13 @@
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: Telegram Trading
+    receivers:
+      - uid: telegram-trading-uid
+        type: telegram
+        settings:
+          bottoken: "8755483746:AAHcwQ_QMntZyCCzreq7w-OHTEHpStfZfG4"
+          chatid: "5982496585"
+          parse_mode: Markdown
+        disableResolveMessage: false
