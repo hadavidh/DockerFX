@@ -9,5 +9,4 @@ contactPoints:
         settings:
           bottoken: "8755483746:AAHcwQ_QMntZyCCzreq7w-OHTEHpStfZfG4"
           chatid: "5982496585"
-          parse_mode: Markdown
         disableResolveMessage: false

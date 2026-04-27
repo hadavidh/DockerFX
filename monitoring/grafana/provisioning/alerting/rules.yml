@@ -1,5 +1,7 @@
 apiVersion: 1
+
 groups:
+
   - orgId: 1
     name: critical
     folder: ICT Trading
@@ -13,7 +15,7 @@ groups:
           severity: critical
         annotations:
           summary: "cTrader déconnecté depuis 5 minutes"
-          description: "Les ordres AUTO sont en SIMULATION."
+          description: "Les ordres AUTO sont en mode SIMULATION. Vérifier token FTMO."
         data:
           - refId: A
             relativeTimeRange:
@@ -48,11 +50,13 @@ groups:
               expression: A
               refId: C
               type: classic_conditions
+
   - orgId: 1
     name: infrastructure
     folder: ICT Trading
     interval: 1m
     rules:
+
       - uid: ram-backend-critical-uid
         title: "RAM Backend Critique"
         condition: C
@@ -96,6 +100,7 @@ groups:
               expression: A
               refId: C
               type: classic_conditions
+
       - uid: container-restart-uid
         title: "Container Restart Inattendu"
         condition: C

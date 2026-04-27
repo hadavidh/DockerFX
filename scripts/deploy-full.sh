@@ -40,6 +40,7 @@ GRAFANA_USER="admin"
 GRAFANA_PASSWORD="ict-trading-2026"
 GRAFANA_URL="http://127.0.0.1:${GRAFANA_PORT}"
 VPS_IP="135.125.196.204"
+GRAFANA_DS_UID="PBFA97CFB590B2093"
 
 SKIP_BUILD=false
 SWARM_ONLY=false
@@ -122,8 +123,12 @@ if [ "$DESTROY" = true ]; then
   docker compose -p staging -f docker-compose.staging.yml down --remove-orphans 2>/dev/null || true
   print_ok "Staging arrêté"
 
-  print_step "Arrêt monitoring..."
+  print_step "Arrêt monitoring + suppression volumes..."
   docker compose -p monitoring -f docker-compose.monitoring.yml down --remove-orphans 2>/dev/null || true
+  # Suppression volumes — indispensable pour que le prochain déploiement
+  # reprovisionne Grafana avec le bon UID datasource (PBFA97CFB590B2093)
+  docker volume rm monitoring_grafana_data    2>/dev/null && print_ok "Volume grafana_data supprimé"    || true
+  docker volume rm monitoring_prometheus_data 2>/dev/null && print_ok "Volume prometheus_data supprimé" || true
   print_ok "Monitoring arrêté"
 
   print_step "Nettoyage Docker..."
@@ -135,7 +140,7 @@ if [ "$DESTROY" = true ]; then
 fi
 
 # ════════════════════════════════════════════════════════════════
-# MONITORING ONLY
+# FONCTION deploy_monitoring
 # ════════════════════════════════════════════════════════════════
 deploy_monitoring() {
   print_header "MONITORING — Prometheus + Grafana + cAdvisor + Node Exporter"
@@ -143,37 +148,71 @@ deploy_monitoring() {
   print_step "Création des dossiers monitoring..."
   mkdir -p "$PROJECT_DIR/monitoring/grafana/provisioning/datasources"
   mkdir -p "$PROJECT_DIR/monitoring/grafana/provisioning/dashboards"
+  mkdir -p "$PROJECT_DIR/monitoring/grafana/provisioning/alerting"
   mkdir -p "$PROJECT_DIR/monitoring/grafana/dashboards"
   print_ok "Dossiers créés"
 
-  print_step "Copie des fichiers de config monitoring (générés par Terraform)..."
-  # Les fichiers ont été générés par terraform apply à l'étape précédente
-  [ -f "$PROJECT_DIR/monitoring/prometheus.yml" ]                                                       && print_ok "prometheus.yml" || print_warn "prometheus.yml manquant — relancer terraform apply"
-  [ -f "$PROJECT_DIR/monitoring/grafana/provisioning/datasources/datasource.yml" ]                     && print_ok "datasource.yml" || print_warn "datasource.yml manquant"
-  [ -f "$PROJECT_DIR/monitoring/grafana/provisioning/dashboards/dashboards.yml" ]                      && print_ok "dashboards.yml" || print_warn "dashboards.yml manquant"
-  [ -f "$PROJECT_DIR/monitoring/grafana/dashboards/ict-trading.json" ]                                 && print_ok "ict-trading.json (dashboard)" || print_warn "ict-trading.json manquant"
+  print_step "Validation des fichiers de config monitoring..."
+  FILES_MON=(
+    "$PROJECT_DIR/monitoring/prometheus.yml"
+    "$PROJECT_DIR/monitoring/grafana/provisioning/datasources/datasource.yml"
+    "$PROJECT_DIR/monitoring/grafana/provisioning/dashboards/dashboards.yml"
+    "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/contactpoints.yml"
+    "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/policies.yml"
+    "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/rules.yml"
+    "$PROJECT_DIR/monitoring/grafana/dashboards/ict-trading.json"
+  )
+  for f in "${FILES_MON[@]}"; do
+    [ -f "$f" ] && print_ok "$(basename $f)" \
+      || print_warn "$(basename $f) manquant — relancer terraform apply"
+  done
+
+  # Vérification critique : relativeTimeRange dans rules.yml
+  # Sans ce champ, Grafana crashe au démarrage
+  if [ -f "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/rules.yml" ]; then
+    RT_COUNT=$(grep -c "relativeTimeRange" \
+      "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/rules.yml" 2>/dev/null || echo "0")
+    if [ "$RT_COUNT" -ge "6" ]; then
+      print_ok "rules.yml valide (relativeTimeRange x${RT_COUNT})"
+    else
+      print_error "rules.yml invalide — relativeTimeRange manquant (${RT_COUNT}/6)"
+      print_error "Grafana va crasher. Mettre à jour main.tf et relancer terraform apply"
+      return 1
+    fi
+  fi
 
   print_step "Vérification du réseau Swarm trading-net..."
   if docker network inspect ict-prod_trading-net >/dev/null 2>&1; then
     print_ok "Réseau ict-prod_trading-net présent"
   else
-    print_warn "Réseau ict-prod_trading-net absent — la stack prod doit être déployée d'abord"
+    print_warn "Réseau ict-prod_trading-net absent — stack prod à déployer d'abord"
   fi
 
-  print_step "Arrêt de l'ancienne stack monitoring (si présente)..."
+  print_step "Arrêt de l'ancienne stack monitoring..."
   cd "$PROJECT_DIR"
   docker compose -p monitoring -f docker-compose.monitoring.yml down --remove-orphans 2>/dev/null || true
 
-  print_step "Démarrage de la stack monitoring..."
+  # ── RESET VOLUME GRAFANA ──────────────────────────────────────
+  # OBLIGATOIRE à chaque déploiement.
+  # Si grafana_data existe déjà, Grafana ignore le provisioning et
+  # crée sa datasource avec un UID aléatoire → "Datasource not found"
+  # sur tous les panels. En supprimant le volume, Grafana repart de
+  # zéro, lit datasource.yml et applique l'UID PBFA97CFB590B2093.
+  print_step "Reset volume Grafana (UID datasource garanti)..."
+  docker volume rm monitoring_grafana_data 2>/dev/null \
+    && print_ok "Volume grafana_data supprimé → provisioning propre" \
+    || print_ok "Volume grafana_data absent — premier déploiement"
+
+  print_step "Pull images monitoring..."
   docker compose -p monitoring -f docker-compose.monitoring.yml pull --quiet
+
+  print_step "Démarrage de la stack monitoring..."
   docker compose -p monitoring -f docker-compose.monitoring.yml up -d
 
-  print_step "Attente démarrage Grafana (30s)..."
-  sleep 30
+  print_step "Attente démarrage Grafana (40s — alerting provisioning inclus)..."
+  sleep 40
 
-  print_step "Vérification des containers monitoring..."
-  MONITOR_STATUS=$(docker compose -p monitoring -f docker-compose.monitoring.yml ps --format json 2>/dev/null || echo "")
-
+  print_step "Vérification des containers..."
   for svc in prometheus grafana node-exporter cadvisor; do
     if docker ps --format '{{.Names}}' | grep -q "^${svc}$"; then
       print_ok "$svc UP"
@@ -182,34 +221,73 @@ deploy_monitoring() {
     fi
   done
 
-  print_step "Vérification Prometheus scrape targets..."
-  if curl -sf --connect-timeout 5 "$GRAFANA_URL/../9090/api/v1/targets" >/dev/null 2>&1 ||
-     curl -sf --connect-timeout 5 "http://127.0.0.1:9090/api/v1/targets" >/dev/null 2>&1; then
-    print_ok "Prometheus API répond"
-  else
-    print_warn "Prometheus API non accessible depuis le host (normal — port 127.0.0.1:9090)"
-  fi
+  print_step "Vérification Prometheus..."
+  curl -sf --connect-timeout 5 "http://127.0.0.1:9090/api/v1/targets" >/dev/null 2>&1 \
+    && print_ok "Prometheus API répond" \
+    || print_warn "Prometheus port 9090 non accessible depuis le host (normal)"
 
-  print_step "Vérification Grafana..."
-  for i in $(seq 1 6); do
+  print_step "Vérification Grafana healthcheck..."
+  GRAFANA_OK=false
+  for i in $(seq 1 8); do
     if curl -sf --connect-timeout 5 "${GRAFANA_URL}/api/health" >/dev/null 2>&1; then
-      print_ok "Grafana API répond"
+      print_ok "Grafana API répond ✅"
+      GRAFANA_OK=true
       break
     fi
-    [ $i -lt 6 ] && sleep 5 || print_warn "Grafana ne répond pas — vérifier : docker logs grafana"
+    [ $i -lt 8 ] && sleep 5 \
+      || print_warn "Grafana ne répond pas — vérifier : docker logs grafana | grep error"
   done
 
-  print_step "Vérification du dashboard provisionné..."
-  DASH_COUNT=$(curl -sf -u "${GRAFANA_USER}:${GRAFANA_PASSWORD}" \
-    "${GRAFANA_URL}/api/search?query=ICT+Trading" 2>/dev/null | \
-    python3 -c "import sys,json; data=json.load(sys.stdin); print(len(data))" 2>/dev/null || echo "0")
+  if [ "$GRAFANA_OK" = true ]; then
 
-  if [ "$DASH_COUNT" -gt "0" ] 2>/dev/null; then
-    print_ok "Dashboard 'ICT Trading' provisionné automatiquement ✅"
-    DASH_URL="${GRAFANA_URL}/d/ict-trading-monitoring"
-    print_ok "URL dashboard : http://${VPS_IP}:${GRAFANA_PORT}/d/ict-trading-monitoring"
-  else
-    print_warn "Dashboard pas encore visible — attendre 30s et rafraîchir Grafana"
+    # Vérification UID datasource Prometheus
+    print_step "Vérification UID datasource Prometheus..."
+    DS_UID=$(curl -sf -u "${GRAFANA_USER}:${GRAFANA_PASSWORD}" \
+      "${GRAFANA_URL}/api/datasources" 2>/dev/null | \
+      python3 -c "
+import sys, json
+try:
+    ds = json.load(sys.stdin)
+    print(ds[0]['uid'] if ds else 'NOT_FOUND')
+except:
+    print('ERROR')
+" 2>/dev/null || echo "ERROR")
+
+    if [ "$DS_UID" = "$GRAFANA_DS_UID" ]; then
+      print_ok "Datasource UID correct : $GRAFANA_DS_UID ✅"
+    else
+      print_warn "Datasource UID inattendu : $DS_UID (attendu : $GRAFANA_DS_UID)"
+      print_warn "Les panels afficheront 'Datasource not found'"
+      print_warn "Solution : bash deploy-full.sh --monitoring-only"
+    fi
+
+    # Vérification dashboard
+    print_step "Vérification dashboard ICT Trading..."
+    DASH_COUNT=$(curl -sf -u "${GRAFANA_USER}:${GRAFANA_PASSWORD}" \
+      "${GRAFANA_URL}/api/search?query=ICT+Trading" 2>/dev/null | \
+      python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
+    [ "$DASH_COUNT" -gt "0" ] 2>/dev/null \
+      && print_ok "Dashboard 'ICT Trading' provisionné ✅" \
+      && print_ok "URL : http://${VPS_IP}:${GRAFANA_PORT}/d/ict-trading-monitoring" \
+      || print_warn "Dashboard pas encore visible — rafraîchir dans 30s"
+
+    # Vérification alertes
+    print_step "Vérification alertes Grafana..."
+    ALERT_COUNT=$(curl -sf -u "${GRAFANA_USER}:${GRAFANA_PASSWORD}" \
+      "${GRAFANA_URL}/api/ruler/grafana/api/v1/rules" 2>/dev/null | \
+      python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    count = sum(len(g['rules']) for folder in d.values() for g in folder)
+    print(count)
+except:
+    print(0)
+" 2>/dev/null || echo "0")
+    [ "$ALERT_COUNT" -gt "0" ] 2>/dev/null \
+      && print_ok "$ALERT_COUNT règle(s) d'alerte provisionnée(s) ✅ (Telegram)" \
+      || print_warn "Aucune alerte — vérifier : docker logs grafana | grep error"
+
   fi
 }
 
@@ -234,14 +312,23 @@ if [ "$SWARM_ONLY" = false ] && [ "$STAGING_ONLY" = false ]; then
   print_header "ÉTAPE 0 — Vérification des prérequis"
 
   ERRORS=0
-  command -v terraform >/dev/null && print_ok "Terraform : $(terraform --version | head -1)" || { print_error "Terraform manquant"; ERRORS=$((ERRORS + 1)); }
-  command -v ansible-playbook >/dev/null && print_ok "Ansible : $(ansible --version | head -1)" || { print_error "Ansible manquant"; ERRORS=$((ERRORS + 1)); }
-  command -v docker >/dev/null && print_ok "Docker : $(docker --version)" || { print_error "Docker manquant"; ERRORS=$((ERRORS + 1)); }
+  command -v terraform >/dev/null \
+    && print_ok "Terraform : $(terraform --version | head -1)" \
+    || { print_error "Terraform manquant"; ERRORS=$((ERRORS + 1)); }
+  command -v ansible-playbook >/dev/null \
+    && print_ok "Ansible : $(ansible --version | head -1)" \
+    || { print_error "Ansible manquant"; ERRORS=$((ERRORS + 1)); }
+  command -v docker >/dev/null \
+    && print_ok "Docker : $(docker --version)" \
+    || { print_error "Docker manquant"; ERRORS=$((ERRORS + 1)); }
 
-  [ -d "$PROJECT_DIR" ]               && print_ok "Dossier projet présent"        || { print_error "Dossier projet introuvable"; ERRORS=$((ERRORS + 1)); }
-  [ -f "$TERRAFORM_DIR/main.tf" ]     && print_ok "main.tf présent"               || { print_error "main.tf introuvable"; ERRORS=$((ERRORS + 1)); }
-  [ -f "$ANSIBLE_DIR/playbook.yml" ]  && print_ok "playbook.yml présent"          || { print_error "playbook.yml manquant"; ERRORS=$((ERRORS + 1)); }
-  [ -f "$PROJECT_DIR/.env.prod" ]     && print_ok ".env.prod présent"             || print_warn ".env.prod absent"
+  [ -d "$PROJECT_DIR" ]              && print_ok "Dossier projet présent"  || { print_error "Dossier projet introuvable"; ERRORS=$((ERRORS + 1)); }
+  [ -f "$TERRAFORM_DIR/main.tf" ]    && print_ok "main.tf présent"         || { print_error "main.tf introuvable"; ERRORS=$((ERRORS + 1)); }
+  [ -f "$ANSIBLE_DIR/playbook.yml" ] && print_ok "playbook.yml présent"    || { print_error "playbook.yml manquant"; ERRORS=$((ERRORS + 1)); }
+  [ -f "$PROJECT_DIR/.env.prod" ]    && print_ok ".env.prod présent"       || print_warn ".env.prod absent"
+  [ -f "$TERRAFORM_DIR/terraform.tfvars" ] \
+    && print_ok "terraform.tfvars présent" \
+    || print_warn "terraform.tfvars absent — alertes Telegram sans credentials"
 
   if [ -f "$SSL_DIR/cloudflare-origin.crt" ] && [ -f "$SSL_DIR/cloudflare-origin.key" ]; then
     print_ok "Certificats Cloudflare Origin présents"
@@ -259,7 +346,8 @@ if [ "$SWARM_ONLY" = false ] && [ "$STAGING_ONLY" = false ]; then
   print_header "ÉTAPE 1 — Terraform (génération des fichiers de config)"
 
   cd "$TERRAFORM_DIR"
-  [ ! -d ".terraform" ] && { print_step "Init Terraform..."; terraform init; print_ok "Terraform initialisé"; } || print_ok "Terraform déjà initialisé"
+  [ ! -d ".terraform" ] && { print_step "Init Terraform..."; terraform init; print_ok "Terraform initialisé"; } \
+    || print_ok "Terraform déjà initialisé"
 
   print_step "Application Terraform..."
   terraform apply -auto-approve
@@ -274,12 +362,26 @@ if [ "$SWARM_ONLY" = false ] && [ "$STAGING_ONLY" = false ]; then
     "$PROJECT_DIR/monitoring/prometheus.yml"
     "$PROJECT_DIR/monitoring/grafana/provisioning/datasources/datasource.yml"
     "$PROJECT_DIR/monitoring/grafana/provisioning/dashboards/dashboards.yml"
+    "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/contactpoints.yml"
+    "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/policies.yml"
+    "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/rules.yml"
     "$PROJECT_DIR/monitoring/grafana/dashboards/ict-trading.json"
   )
-
   for f in "${FILES[@]}"; do
-    [ -f "$f" ] && print_ok "$(basename "$f")" || { print_error "$(basename "$f") manquant"; exit 1; }
+    [ -f "$f" ] && print_ok "$(basename "$f")" \
+      || { print_error "$(basename "$f") manquant"; exit 1; }
   done
+
+  # Vérification critique rules.yml — bloque le déploiement si invalide
+  RT_COUNT=$(grep -c "relativeTimeRange" \
+    "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/rules.yml" || echo "0")
+  if [ "$RT_COUNT" -ge "6" ]; then
+    print_ok "rules.yml valide (relativeTimeRange x${RT_COUNT})"
+  else
+    print_error "rules.yml invalide — relativeTimeRange manquant (${RT_COUNT}/6)"
+    print_error "Grafana va crasher. Vérifier resource grafana_alerting_rules dans main.tf"
+    exit 1
+  fi
 fi
 
 # ════════════════════════════════════════════════════════════════
@@ -289,7 +391,9 @@ if [ "$SKIP_BUILD" = false ] && [ "$SWARM_ONLY" = false ] && [ "$STAGING_ONLY" =
   print_header "ÉTAPE 2 — Build & Push Docker"
 
   cd "$PROJECT_DIR"
-  docker info 2>/dev/null | grep -q "Username" && print_ok "Connecté à DockerHub" || { print_step "Connexion DockerHub..."; docker login; }
+  docker info 2>/dev/null | grep -q "Username" \
+    && print_ok "Connecté à DockerHub" \
+    || { print_step "Connexion DockerHub..."; docker login; }
 
   print_step "Build backend..."
   docker build --target production -t ${DOCKERHUB_USER}/ict-trading-backend:latest "$PROJECT_DIR/backend/"
@@ -308,7 +412,10 @@ if [ "$SKIP_BUILD" = false ] && [ "$SWARM_ONLY" = false ] && [ "$STAGING_ONLY" =
   docker push ${DOCKERHUB_USER}/ict-trading-frontend:develop
   print_ok "Images pushées (latest + develop)"
 else
-  [ "$SKIP_BUILD" = true ] && { print_header "ÉTAPE 2 — Build ignoré (--skip-build)"; print_warn "Images DockerHub existantes utilisées"; }
+  [ "$SKIP_BUILD" = true ] && {
+    print_header "ÉTAPE 2 — Build ignoré (--skip-build)"
+    print_warn "Images DockerHub existantes utilisées"
+  }
 fi
 
 # ════════════════════════════════════════════════════════════════
@@ -318,7 +425,9 @@ print_header "ÉTAPE 3 — Ansible (provisioning VPS)"
 
 cd "$ANSIBLE_DIR"
 print_step "Test connexion Ansible..."
-ansible -i inventory.yml vps_prod -m ping >/dev/null 2>&1 && print_ok "Connexion OK" || { print_error "Connexion Ansible échouée"; exit 1; }
+ansible -i inventory.yml vps_prod -m ping >/dev/null 2>&1 \
+  && print_ok "Connexion OK" \
+  || { print_error "Connexion Ansible échouée"; exit 1; }
 
 if [ "$SWARM_ONLY" = true ]; then
   ansible-playbook -i inventory.yml playbook.yml --tags swarm,gateway,verify
@@ -380,6 +489,7 @@ echo -e "  ${WHITE}🔵 Staging     :${NC} https://$STAGING_DOMAIN"
 echo -e "  ${WHITE}🔥 Grafana     :${NC} http://${VPS_IP}:${GRAFANA_PORT}"
 echo -e "  ${WHITE}   Login       :${NC} ${GRAFANA_USER} / ${GRAFANA_PASSWORD}"
 echo -e "  ${WHITE}   Dashboard   :${NC} http://${VPS_IP}:${GRAFANA_PORT}/d/ict-trading-monitoring"
+echo -e "  ${WHITE}   Alertes     :${NC} Telegram (cTrader / RAM / Restart)"
 echo ""
 echo -e "  ${WHITE}Commandes utiles :${NC}"
 echo -e "  ${CYAN}  docker service ls${NC}                            état Swarm"

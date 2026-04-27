@@ -673,7 +673,6 @@ resource "local_file" "grafana_alerting_contactpoint" {
             settings:
               bottoken: "${var.telegram_token}"
               chatid: "${var.telegram_chatid}"
-              parse_mode: Markdown
             disableResolveMessage: false
   EOT
 }
@@ -731,6 +730,9 @@ resource "local_file" "grafana_alerting_rules" {
               description: "Les ordres AUTO sont en mode SIMULATION. Vérifier token FTMO."
             data:
               - refId: A
+                relativeTimeRange:
+                  from: 300
+                  to: 0
                 datasourceUid: ${var.grafana_datasource_uid}
                 model:
                   expr: trading_ctrader_connected
@@ -738,6 +740,9 @@ resource "local_file" "grafana_alerting_rules" {
                   maxDataPoints: 43200
                   refId: A
               - refId: C
+                relativeTimeRange:
+                  from: 300
+                  to: 0
                 datasourceUid: "__expr__"
                 model:
                   conditions:
@@ -775,6 +780,9 @@ resource "local_file" "grafana_alerting_rules" {
               description: "Container proche de la limite Docker. OOM Kill imminent."
             data:
               - refId: A
+                relativeTimeRange:
+                  from: 300
+                  to: 0
                 datasourceUid: ${var.grafana_datasource_uid}
                 model:
                   expr: "container_memory_usage_bytes{name=~\"ict-prod_backend.*\"} / 1024 / 1024"
@@ -782,6 +790,9 @@ resource "local_file" "grafana_alerting_rules" {
                   maxDataPoints: 43200
                   refId: A
               - refId: C
+                relativeTimeRange:
+                  from: 300
+                  to: 0
                 datasourceUid: "__expr__"
                 model:
                   conditions:
@@ -813,6 +824,9 @@ resource "local_file" "grafana_alerting_rules" {
               description: "Vérifier : docker service logs ict-prod_backend --tail 50"
             data:
               - refId: A
+                relativeTimeRange:
+                  from: 600
+                  to: 0
                 datasourceUid: ${var.grafana_datasource_uid}
                 model:
                   expr: "increase(container_start_time_seconds{name=~\"ict-prod.*\"}[10m])"
@@ -820,6 +834,9 @@ resource "local_file" "grafana_alerting_rules" {
                   maxDataPoints: 43200
                   refId: A
               - refId: C
+                relativeTimeRange:
+                  from: 600
+                  to: 0
                 datasourceUid: "__expr__"
                 model:
                   conditions:
