@@ -136,10 +136,15 @@ jobs:
 
             echo ""
             echo "▶  Attente convergence (max 3 min)..."
+            CONVERGED=false
             for i in \$(seq 1 36); do
               BR=\$(docker service ls --filter name=ict-prod_backend  --format "{{.Replicas}}")
               FR=\$(docker service ls --filter name=ict-prod_frontend --format "{{.Replicas}}")
-              [ "\$BR" = "2/2" ] && [ "\$FR" = "2/2" ] && echo "✅ Convergence 2/2" && break
+              if [ "\$BR" = "2/2" ] && [ "\$FR" = "2/2" ]; then
+                echo "✅ Convergence 2/2"
+                CONVERGED=true
+                break
+              fi
               echo "   [\${i}/36] backend: \$BR · frontend: \$FR"
               sleep 5
             done
@@ -152,26 +157,37 @@ jobs:
               exit 1
             fi
 
-            BR=\$(docker service ls --filter name=ict-prod_backend  --format "{{.Replicas}}")
-            FR=\$(docker service ls --filter name=ict-prod_frontend --format "{{.Replicas}}")
-            [ "\$BR" != "2/2" ] && echo "❌ backend non convergé: \$BR"  && exit 1
-            [ "\$FR" != "2/2" ] && echo "❌ frontend non convergé: \$FR" && exit 1
-            echo "✅ 2/2 backend · 2/2 frontend"
+            if [ "\$CONVERGED" != "true" ]; then
+              echo "❌ Replicas non convergés"
+              docker service ps ict-prod_backend  --no-trunc | head -8
+              docker service ps ict-prod_frontend --no-trunc | head -8
+              exit 1
+            fi
 
+            echo "✅ 2/2 backend · 2/2 frontend"
             echo ""
             echo "▶  État APRÈS :"
             docker service ls
 
             echo ""
             echo "▶  Healthcheck gateway..."
+            HEALTHY=false
             for i in \$(seq 1 20); do
-              curl -kfsS -H "Host: dockerfx.trade" https://127.0.0.1/ > /dev/null 2>&1 \
-                && echo "✅ Gateway healthy — déploiement OK" && exit 0
+              if curl -kfsS -H "Host: dockerfx.trade" https://127.0.0.1/ > /dev/null 2>&1; then
+                HEALTHY=true
+                break
+              fi
               echo "   Tentative \$i/20..."
               sleep 5
             done
-            echo "❌ Gateway unhealthy"
-            exit 1
+
+            if [ "\$HEALTHY" != "true" ]; then
+              echo "❌ Gateway unhealthy"
+              docker service logs ict-prod_frontend --since 5m --tail 30 || true
+              exit 1
+            fi
+
+            echo "✅ Gateway healthy — déploiement OK"
           EOFSSH
 
       - name: 🌐 Verify public URL
