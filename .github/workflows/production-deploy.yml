@@ -85,16 +85,15 @@ jobs:
 
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-            # Construction directe — évite le problème de propagation des step outputs
+            # GitHub Actions résout ${{ }} AVANT d'envoyer le heredoc au SSH
+            # → les valeurs sont des littéraux stricts, aucune dépendance shell
             VERSION="${{ steps.images.outputs.version }}"
-            DOCKERHUB_USER="${{ secrets.DOCKERHUB_USERNAME }}"
-            BACKEND_IMAGE="${DOCKERHUB_USER}/ict-trading-backend:${VERSION}"
-            FRONTEND_IMAGE="${DOCKERHUB_USER}/ict-trading-frontend:${VERSION}"
+            BACKEND_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:${{ steps.images.outputs.version }}"
+            FRONTEND_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend:${{ steps.images.outputs.version }}"
 
             # Validation explicite
-            [ -z "\$VERSION" ]       && echo "❌ VERSION vide"       && exit 1
-            [ -z "\$DOCKERHUB_USER" ] && echo "❌ DOCKERHUB_USER vide" && exit 1
-            [ -z "\$BACKEND_IMAGE" ] && echo "❌ BACKEND_IMAGE vide"  && exit 1
+            [ -z "\$VERSION" ]       && echo "❌ VERSION vide — vérifier step images"        && exit 1
+            [ -z "\$BACKEND_IMAGE" ] && echo "❌ BACKEND_IMAGE vide — vérifier secret DOCKERHUB_USERNAME" && exit 1
 
             echo ""
             echo "╔══════════════════════════════════════════════════════════╗"
@@ -268,5 +267,5 @@ jobs:
           echo "║  Version    : ${{ steps.images.outputs.version }}"
           echo "║  URL        : https://dockerfx.trade"
           echo "║  Downtime   : 0 seconde"
-          echo "║  Replicas   : backend 2/2 ·  frontend 2/2"
+          echo "║  Replicas   : backend 2/2 · frontend 2/2"
           echo "╚══════════════════════════════════════════════════════╝"
