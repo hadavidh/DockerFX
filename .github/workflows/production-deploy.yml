@@ -85,9 +85,16 @@ jobs:
 
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-            BACKEND_IMAGE="${{ steps.images.outputs.backend_image }}"
-            FRONTEND_IMAGE="${{ steps.images.outputs.frontend_image }}"
+            # Construction directe — évite le problème de propagation des step outputs
             VERSION="${{ steps.images.outputs.version }}"
+            DOCKERHUB_USER="${{ secrets.DOCKERHUB_USERNAME }}"
+            BACKEND_IMAGE="${DOCKERHUB_USER}/ict-trading-backend:${VERSION}"
+            FRONTEND_IMAGE="${DOCKERHUB_USER}/ict-trading-frontend:${VERSION}"
+
+            # Validation explicite
+            [ -z "\$VERSION" ]       && echo "❌ VERSION vide"       && exit 1
+            [ -z "\$DOCKERHUB_USER" ] && echo "❌ DOCKERHUB_USER vide" && exit 1
+            [ -z "\$BACKEND_IMAGE" ] && echo "❌ BACKEND_IMAGE vide"  && exit 1
 
             echo ""
             echo "╔══════════════════════════════════════════════════════════╗"
