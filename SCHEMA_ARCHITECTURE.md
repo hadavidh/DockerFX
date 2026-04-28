@@ -384,30 +384,9 @@ Le schéma utilise trois types de flux :
 
 ## 9. Outils suggérés pour réaliser le schéma
 
-Le schéma peut être réalisé ou reproduit avec un outil de modélisation visuelle tel que :
-
-- **Draw.io / diagrams.net** ;
-- **Lucidchart** ;
-- **Excalidraw** ;
-- **Miro** ;
-- **Figma / FigJam** ;
-- ou tout outil équivalent.
 
 Dans le cadre de ce document, le schéma a été généré sous forme d’image et intégré directement dans ce fichier Markdown.
 
 ---
 
-## 10. Conclusion
 
-Le schéma d’architecture DockerFX montre une application organisée autour d’une séparation claire entre **staging** et **production**.
-
-L’environnement staging permet de tester les changements issus de la branche de développement, tandis que la production utilise Docker Swarm pour assurer une meilleure disponibilité grâce aux réplicas, au load balancing et aux mécanismes de rolling update / rollback.
-
-L’ensemble est complété par :
-
-- un pipeline CI/CD automatisé ;
-- une gateway Nginx pour le routage HTTPS ;
-- des réseaux Docker séparés ;
-- une stack de monitoring basée sur Prometheus, Grafana, Node Exporter et cAdvisor.
-
-Cette architecture répond aux exigences demandées : environnements, composants applicatifs, infrastructure, pipeline CI/CD et monitoring.
