@@ -192,4 +192,4 @@ jobs:
         if: success()
         run: |
           VERSION="${{ steps.version_dispatch.outputs.value }}${{ steps.version_run.outputs.value }}"
-          echo "✅ Rolling update terminé — version ${VERSION} — https://dockerfx.trade — downtime 0s"
+          echo "✅ Rolling  update terminé — version ${VERSION} — https://dockerfx.trade — downtime 0s"
