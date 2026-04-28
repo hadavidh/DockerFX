@@ -500,6 +500,32 @@ resource "local_file" "docker_compose_monitoring" {
         networks:
           - monitoring-net
 
+      loki:
+        image: grafana/loki:latest
+        container_name: loki
+        restart: unless-stopped
+        ports:
+          - "127.0.0.1:3100:3100"
+        volumes:
+          - loki_data:/loki
+        command: -config.file=/etc/loki/local-config.yaml
+        networks:
+          - monitoring-net
+
+      promtail:
+        image: grafana/promtail:latest
+        container_name: promtail
+        restart: unless-stopped
+        volumes:
+          - ${var.project_dir}/monitoring/promtail/config.yml:/etc/promtail/config.yml:ro
+          - /var/run/docker.sock:/var/run/docker.sock:ro
+          - /var/lib/docker/containers:/var/lib/docker/containers:ro
+        command: -config.file=/etc/promtail/config.yml
+        networks:
+          - monitoring-net
+        depends_on:
+          - loki
+
       grafana:
         image: grafana/grafana:latest
         container_name: grafana
@@ -510,6 +536,12 @@ resource "local_file" "docker_compose_monitoring" {
           - GF_USERS_ALLOW_SIGN_UP=false
           - GF_ANALYTICS_REPORTING_ENABLED=false
           - GF_SERVER_ROOT_URL=http://${var.vps_ip}:${var.grafana_port}
+          - GF_UNIFIED_ALERTING_ENABLED=true
+          - GF_ALERTING_ENABLED=false
+          - TELEGRAM_TOKEN=$${TELEGRAM_TOKEN}
+          - TELEGRAM_CHATID=$${TELEGRAM_CHATID}
+        env_file:
+          - ${var.project_dir}/.env.prod
         volumes:
           - grafana_data:/var/lib/grafana
           - ${var.project_dir}/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -520,6 +552,7 @@ resource "local_file" "docker_compose_monitoring" {
           - monitoring-net
         depends_on:
           - prometheus
+          - loki
 
     networks:
       monitoring-net:
@@ -531,6 +564,7 @@ resource "local_file" "docker_compose_monitoring" {
     volumes:
       prometheus_data:
       grafana_data:
+      loki_data:
   EOT
 }
 
@@ -586,6 +620,16 @@ resource "local_file" "grafana_datasource" {
         jsonData:
           timeInterval: '15s'
           httpMethod: POST
+
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki:3100
+        isDefault: false
+        editable: false
+        uid: loki-uid-dockerfx
+        jsonData:
+          maxLines: 1000
   EOT
 }
 
@@ -863,6 +907,41 @@ resource "local_file" "grafana_alerting_rules" {
 # RÉSUMÉ TERRAFORM
 # ════════════════════════════════════════════════════════════════
 
+
+# ════════════════════════════════════════════════════════════════
+# MONITORING — Promtail config (collecte logs Docker → Loki)
+# ════════════════════════════════════════════════════════════════
+
+resource "local_file" "promtail_config" {
+  filename        = "${path.module}/../../monitoring/promtail/config.yml"
+  file_permission = "0644"
+  content         = <<-EOT
+    server:
+      http_listen_port: 9080
+      grpc_listen_port: 0
+
+    positions:
+      filename: /tmp/positions.yaml
+
+    clients:
+      - url: http://loki:3100/loki/api/v1/push
+
+    scrape_configs:
+      - job_name: docker
+        docker_sd_configs:
+          - host: unix:///var/run/docker.sock
+            refresh_interval: 5s
+        relabel_configs:
+          - source_labels: [__meta_docker_container_name]
+            regex: '/(.*)'
+            target_label: container
+          - source_labels: [__meta_docker_container_label_com_docker_swarm_service_name]
+            target_label: service
+          - source_labels: [__meta_docker_container_label_environment]
+            target_label: environment
+  EOT
+}
+
 resource "null_resource" "summary" {
   triggers = {
     stack_hash      = local_file.docker_stack_prod.content
@@ -927,5 +1006,6 @@ resource "null_resource" "summary" {
     local_file.grafana_alerting_contactpoint,
     local_file.grafana_alerting_policy,
     local_file.grafana_alerting_rules,
+    local_file.promtail_config,
   ]
 }

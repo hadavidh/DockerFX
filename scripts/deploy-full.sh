@@ -129,6 +129,7 @@ if [ "$DESTROY" = true ]; then
   # reprovisionne Grafana avec le bon UID datasource (PBFA97CFB590B2093)
   docker volume rm monitoring_grafana_data    2>/dev/null && print_ok "Volume grafana_data supprimé"    || true
   docker volume rm monitoring_prometheus_data 2>/dev/null && print_ok "Volume prometheus_data supprimé" || true
+  docker volume rm monitoring_loki_data       2>/dev/null && print_ok "Volume loki_data supprimé"       || true
   print_ok "Monitoring arrêté"
 
   print_step "Nettoyage Docker..."
@@ -150,6 +151,7 @@ deploy_monitoring() {
   mkdir -p "$PROJECT_DIR/monitoring/grafana/provisioning/dashboards"
   mkdir -p "$PROJECT_DIR/monitoring/grafana/provisioning/alerting"
   mkdir -p "$PROJECT_DIR/monitoring/grafana/dashboards"
+  mkdir -p "$PROJECT_DIR/monitoring/promtail"
   print_ok "Dossiers créés"
 
   print_step "Validation des fichiers de config monitoring..."
@@ -161,6 +163,7 @@ deploy_monitoring() {
     "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/policies.yml"
     "$PROJECT_DIR/monitoring/grafana/provisioning/alerting/rules.yml"
     "$PROJECT_DIR/monitoring/grafana/dashboards/ict-trading.json"
+    "$PROJECT_DIR/monitoring/promtail/config.yml"
   )
   for f in "${FILES_MON[@]}"; do
     [ -f "$f" ] && print_ok "$(basename $f)" \
@@ -202,6 +205,10 @@ deploy_monitoring() {
   docker volume rm monitoring_grafana_data 2>/dev/null \
     && print_ok "Volume grafana_data supprimé → provisioning propre" \
     || print_ok "Volume grafana_data absent — premier déploiement"
+  # Reset loki_data aussi pour repartir propre
+  docker volume rm monitoring_loki_data 2>/dev/null \
+    && print_ok "Volume loki_data supprimé" \
+    || print_ok "Volume loki_data absent — premier déploiement"
 
   print_step "Pull images monitoring..."
   docker compose -p monitoring -f docker-compose.monitoring.yml pull --quiet
@@ -213,7 +220,7 @@ deploy_monitoring() {
   sleep 40
 
   print_step "Vérification des containers..."
-  for svc in prometheus grafana node-exporter cadvisor; do
+  for svc in prometheus grafana node-exporter cadvisor loki promtail; do
     if docker ps --format '{{.Names}}' | grep -q "^${svc}$"; then
       print_ok "$svc UP"
     else
@@ -248,7 +255,9 @@ deploy_monitoring() {
 import sys, json
 try:
     ds = json.load(sys.stdin)
-    print(ds[0]['uid'] if ds else 'NOT_FOUND')
+    # Cherche Prometheus par type — Loki peut être retourné en premier
+    prom = next((d for d in ds if d.get('type') == 'prometheus'), None)
+    print(prom['uid'] if prom else 'NOT_FOUND')
 except:
     print('ERROR')
 " 2>/dev/null || echo "ERROR")
@@ -490,6 +499,7 @@ echo -e "  ${WHITE}🔥 Grafana     :${NC} http://${VPS_IP}:${GRAFANA_PORT}"
 echo -e "  ${WHITE}   Login       :${NC} ${GRAFANA_USER} / ${GRAFANA_PASSWORD}"
 echo -e "  ${WHITE}   Dashboard   :${NC} http://${VPS_IP}:${GRAFANA_PORT}/d/ict-trading-monitoring"
 echo -e "  ${WHITE}   Alertes     :${NC} Telegram (cTrader / RAM / Restart)"
+echo -e "  ${WHITE}📋 Loki        :${NC} http://127.0.0.1:3100 (logs centralisés)"
 echo ""
 echo -e "  ${WHITE}Commandes utiles :${NC}"
 echo -e "  ${CYAN}  docker service ls${NC}                            état Swarm"
