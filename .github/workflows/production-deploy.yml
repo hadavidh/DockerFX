@@ -268,5 +268,5 @@ jobs:
           echo "║  Version    : ${{ steps.images.outputs.version }}"
           echo "║  URL        : https://dockerfx.trade"
           echo "║  Downtime   : 0 seconde"
-          echo "║  Replicas   : backend 2/2 · frontend 2/2"
+          echo "║  Replicas   : backend 2/2 ·  frontend 2/2"
           echo "╚══════════════════════════════════════════════════════╝"
