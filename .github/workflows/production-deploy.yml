@@ -73,27 +73,45 @@ jobs:
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
       - name: 🔄 Rolling Update Production
+        env:
+          # Résolution des expressions GitHub AVANT execution du shell
+          # → variables disponibles localement sur le runner
+          DEPLOY_VERSION: "${{ steps.images.outputs.version }}"
+          BACKEND_IMAGE:  "${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:${{ steps.images.outputs.version }}"
+          FRONTEND_IMAGE: "${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend:${{ steps.images.outputs.version }}"
+          DOCKERHUB_TOKEN: "${{ secrets.DOCKERHUB_TOKEN }}"
+          DOCKERHUB_USER:  "${{ secrets.DOCKERHUB_USERNAME }}"
         run: |
+          # Debug local — visible dans les logs GitHub Actions
+          echo "▶  Version    : $DEPLOY_VERSION"
+          echo "▶  Backend    : $BACKEND_IMAGE"
+          echo "▶  Frontend   : $FRONTEND_IMAGE"
+
+          # Validation locale avant SSH
+          [ -z "$DEPLOY_VERSION" ]  && echo "❌ DEPLOY_VERSION vide"  && exit 1
+          [ -z "$BACKEND_IMAGE"  ]  && echo "❌ BACKEND_IMAGE vide"   && exit 1
+          [ -z "$DOCKERHUB_USER" ]  && echo "❌ DOCKERHUB_USER vide — vérifier secret DOCKERHUB_USERNAME" && exit 1
+
+          # Passage des variables au VPS via inline env SSH
+          # Le heredoc est QUOTÉ << 'EOFSSH' → pas d'évaluation locale
+          # Les variables sont passées en préfixe de la commande bash
           ssh \
             -o ServerAliveInterval=30 \
             -o ServerAliveCountMax=10 \
             -o TCPKeepAlive=yes \
             -o ConnectTimeout=10 \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" << EOFSSH
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "BACKEND_IMAGE='$BACKEND_IMAGE' FRONTEND_IMAGE='$FRONTEND_IMAGE' DEPLOY_VERSION='$DEPLOY_VERSION' DOCKERHUB_TOKEN='$DOCKERHUB_TOKEN' DOCKERHUB_USER='$DOCKERHUB_USER' bash -s" << 'EOFSSH
             set -e
             cd ~/dockerFX
 
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin
 
-            # GitHub Actions résout ${{ }} AVANT d'envoyer le heredoc au SSH
-            # → les valeurs sont des littéraux stricts, aucune dépendance shell
-            VERSION="${{ steps.images.outputs.version }}"
-            BACKEND_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:${{ steps.images.outputs.version }}"
-            FRONTEND_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend:${{ steps.images.outputs.version }}"
+            VERSION="$DEPLOY_VERSION"
 
-            # Validation explicite
-            [ -z "\$VERSION" ]       && echo "❌ VERSION vide — vérifier step images"        && exit 1
-            [ -z "\$BACKEND_IMAGE" ] && echo "❌ BACKEND_IMAGE vide — vérifier secret DOCKERHUB_USERNAME" && exit 1
+            # Validation sur le VPS
+            [ -z "$VERSION" ]       && echo "❌ VERSION vide sur VPS"       && exit 1
+            [ -z "$BACKEND_IMAGE" ] && echo "❌ BACKEND_IMAGE vide sur VPS" && exit 1
 
             echo ""
             echo "╔══════════════════════════════════════════════════════════╗"
