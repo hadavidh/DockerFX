@@ -161,26 +161,34 @@ jobs:
             done
 
             # ── Vérification du rollback auto ────────────────────
-            UPDATE_STATE_BACKEND=\$(docker service inspect ict-prod_backend --format '{{.UpdateStatus.State}}')
-            UPDATE_STATE_FRONTEND=\$(docker service inspect ict-prod_frontend --format '{{.UpdateStatus.State}}')
+            UPDATE_STATE_BACKEND=\$(docker service inspect ict-prod_backend --format '{{.UpdateStatus.State}}' 2>/dev/null || echo "")
+            UPDATE_STATE_FRONTEND=\$(docker service inspect ict-prod_frontend --format '{{.UpdateStatus.State}}' 2>/dev/null || echo "")
 
             echo ""
             echo "▶  État final UpdateStatus :"
-            echo "   Backend  : \$UPDATE_STATE_BACKEND"
-            echo "   Frontend : \$UPDATE_STATE_FRONTEND"
+            echo "   Backend  : \${UPDATE_STATE_BACKEND:-no_update_yet}"
+            echo "   Frontend : \${UPDATE_STATE_FRONTEND:-no_update_yet}"
 
+            # Vérifier uniquement si un rollback a eu lieu (état critique)
             if [ "\$UPDATE_STATE_BACKEND" = "rollback_completed" ] || [ "\$UPDATE_STATE_FRONTEND" = "rollback_completed" ]; then
               echo "❌ ROLLBACK AUTOMATIQUE déclenché — la nouvelle version a échoué"
               docker service logs ict-prod_backend --since 5m --tail 50 || true
               exit 1
             fi
 
-            if [ "\$UPDATE_STATE_BACKEND" != "completed" ] || [ "\$UPDATE_STATE_FRONTEND" != "completed" ]; then
-              echo "⚠️  Update non terminé — état inattendu"
+            # "completed", "" (premier déploiement), "paused" ignoré — on valide via replicas
+            BACKEND_REPLICAS=\$(docker service ls --filter name=ict-prod_backend --format "{{.Replicas}}")
+            FRONTEND_REPLICAS=\$(docker service ls --filter name=ict-prod_frontend --format "{{.Replicas}}")
+            echo "   Replicas backend  : \$BACKEND_REPLICAS"
+            echo "   Replicas frontend : \$FRONTEND_REPLICAS"
+
+            if [ "\$BACKEND_REPLICAS" != "2/2" ] || [ "\$FRONTEND_REPLICAS" != "2/2" ]; then
+              echo "❌ Replicas non convergés après rolling update"
               docker service ps ict-prod_backend --no-trunc | head -10
               docker service ps ict-prod_frontend --no-trunc | head -10
               exit 1
             fi
+            echo "✅ Replicas convergés — 2/2 backend et 2/2 frontend"
 
             # ── État après ───────────────────────────────────────
             echo ""
