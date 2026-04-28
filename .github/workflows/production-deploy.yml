@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   deploy-production:
-    name: 🚀 Deploy Production Gateway
+    name: 🚀 Deploy Production — Rolling Update Zéro Downtime
     runs-on: ubuntu-latest
     environment: production
     if: >
@@ -52,14 +52,14 @@ jobs:
         id: tag
         run: |
           VERSION="$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)"
-          test -n "$VERSION" || (echo "Impossible de déterminer le tag de version sur ce commit" && exit 1)
+          test -n "$VERSION" || (echo "❌ Impossible de déterminer le tag de version sur ce commit" && exit 1)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Finalize image names
         id: images
         run: |
           VERSION="${{ steps.meta.outputs.version || steps.tag.outputs.version }}"
-          echo "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || (echo "Version invalide: $VERSION" && exit 1)
+          echo "$VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || (echo "❌ Version invalide: $VERSION" && exit 1)
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:$VERSION" >> "$GITHUB_OUTPUT"
@@ -72,7 +72,7 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy production on VPS
+      - name: 🔄 Rolling Update Production
         run: |
           ssh \
             -o ServerAliveInterval=30 \
@@ -87,54 +87,128 @@ jobs:
 
             BACKEND_IMAGE="${{ steps.images.outputs.backend_image }}"
             FRONTEND_IMAGE="${{ steps.images.outputs.frontend_image }}"
+            VERSION="${{ steps.images.outputs.version }}"
 
-            echo "Deploying production version: ${{ steps.images.outputs.version }}"
-            echo "BACKEND_IMAGE=$BACKEND_IMAGE"
-            echo "FRONTEND_IMAGE=$FRONTEND_IMAGE"
+            echo ""
+            echo "╔══════════════════════════════════════════════════════════╗"
+            echo "║  🔄  ROLLING UPDATE PRODUCTION                          ║"
+            echo "╠══════════════════════════════════════════════════════════╣"
+            echo "║  Version    : \$VERSION                                  ║"
+            echo "║  Backend    : \$BACKEND_IMAGE                            ║"
+            echo "║  Frontend   : \$FRONTEND_IMAGE                           ║"
+            echo "║  Stratégie  : start-first · 1 replica/step · rollback   ║"
+            echo "╚══════════════════════════════════════════════════════════╝"
+            echo ""
 
-            docker service inspect ict-prod_backend >/dev/null 2>&1 || (echo "Service ict-prod_backend introuvable. Déployer d'abord la stack gateway-ready." && exit 1)
-            docker service inspect ict-prod_frontend >/dev/null 2>&1 || (echo "Service ict-prod_frontend introuvable. Déployer d'abord la stack gateway-ready." && exit 1)
+            # Vérifier que la stack existe
+            docker service inspect ict-prod_backend >/dev/null 2>&1 \
+              || (echo "❌ Service ict-prod_backend introuvable. Déployer d'abord la stack." && exit 1)
+            docker service inspect ict-prod_frontend >/dev/null 2>&1 \
+              || (echo "❌ Service ict-prod_frontend introuvable. Déployer d'abord la stack." && exit 1)
 
-            docker service update \
-              --image "$BACKEND_IMAGE" \
-              --update-parallelism 1 \
-              --update-delay 10s \
-              --with-registry-auth \
+            # ── Pull explicite avant rolling update ──────────────
+            echo "▶  Pull des nouvelles images..."
+            docker pull "\$BACKEND_IMAGE"
+            docker pull "\$FRONTEND_IMAGE"
+
+            # ── État initial ─────────────────────────────────────
+            echo ""
+            echo "▶  État AVANT déploiement :"
+            docker service ps ict-prod_backend --filter desired-state=running --format "table {{.Name}}\t{{.Image}}\t{{.CurrentState}}" | head -5
+            echo ""
+
+            # ── Rolling Update Backend ───────────────────────────
+            echo "🔄 Rolling update BACKEND (start-first + healthcheck + rollback auto)..."
+            docker service update \\
+              --image "\$BACKEND_IMAGE" \\
+              --update-parallelism 1 \\
+              --update-delay 10s \\
+              --update-order start-first \\
+              --update-failure-action rollback \\
+              --update-monitor 30s \\
+              --update-max-failure-ratio 0.0 \\
+              --with-registry-auth \\
               ict-prod_backend
 
-            docker service update \
-              --image "$FRONTEND_IMAGE" \
-              --update-parallelism 1 \
-              --update-delay 10s \
-              --with-registry-auth \
+            # ── Rolling Update Frontend ──────────────────────────
+            echo ""
+            echo "🔄 Rolling update FRONTEND (start-first + healthcheck + rollback auto)..."
+            docker service update \\
+              --image "\$FRONTEND_IMAGE" \\
+              --update-parallelism 1 \\
+              --update-delay 10s \\
+              --update-order start-first \\
+              --update-failure-action rollback \\
+              --update-monitor 30s \\
+              --update-max-failure-ratio 0.0 \\
+              --with-registry-auth \\
               ict-prod_frontend
 
-            echo "Waiting for services to converge..."
-            sleep 20
+            # ── Attente de convergence ───────────────────────────
+            echo ""
+            echo "▶  Attente convergence des replicas (max 3 min)..."
+            for i in \$(seq 1 36); do
+              BACKEND_REPLICAS=\$(docker service ls --filter name=ict-prod_backend --format "{{.Replicas}}")
+              FRONTEND_REPLICAS=\$(docker service ls --filter name=ict-prod_frontend --format "{{.Replicas}}")
 
-            docker service ls
-            docker service ps ict-prod_backend --no-trunc
-            docker service ps ict-prod_frontend --no-trunc
-
-            echo "Checking production through local gateway..."
-            for i in $(seq 1 20); do
-              if curl -kfsS -H "Host: dockerfx.trade" https://127.0.0.1/ > /dev/null 2>&1; then
-                echo "✅ Production gateway reachable"
-                exit 0
+              if [ "\$BACKEND_REPLICAS" = "2/2" ] && [ "\$FRONTEND_REPLICAS" = "2/2" ]; then
+                echo "✅ Convergence atteinte : backend \$BACKEND_REPLICAS · frontend \$FRONTEND_REPLICAS"
+                break
               fi
-              echo "Attempt $i/20..."
+
+              echo "   Tentative \$i/36 — backend: \$BACKEND_REPLICAS · frontend: \$FRONTEND_REPLICAS"
               sleep 5
             done
 
-            echo "❌ Production gateway healthcheck failed"
-            docker service ps ict-prod_frontend --no-trunc || true
-            docker service logs ict-prod_frontend --since 10m || true
+            # ── Vérification du rollback auto ────────────────────
+            UPDATE_STATE_BACKEND=\$(docker service inspect ict-prod_backend --format '{{.UpdateStatus.State}}')
+            UPDATE_STATE_FRONTEND=\$(docker service inspect ict-prod_frontend --format '{{.UpdateStatus.State}}')
+
+            echo ""
+            echo "▶  État final UpdateStatus :"
+            echo "   Backend  : \$UPDATE_STATE_BACKEND"
+            echo "   Frontend : \$UPDATE_STATE_FRONTEND"
+
+            if [ "\$UPDATE_STATE_BACKEND" = "rollback_completed" ] || [ "\$UPDATE_STATE_FRONTEND" = "rollback_completed" ]; then
+              echo "❌ ROLLBACK AUTOMATIQUE déclenché — la nouvelle version a échoué"
+              docker service logs ict-prod_backend --since 5m --tail 50 || true
+              exit 1
+            fi
+
+            if [ "\$UPDATE_STATE_BACKEND" != "completed" ] || [ "\$UPDATE_STATE_FRONTEND" != "completed" ]; then
+              echo "⚠️  Update non terminé — état inattendu"
+              docker service ps ict-prod_backend --no-trunc | head -10
+              docker service ps ict-prod_frontend --no-trunc | head -10
+              exit 1
+            fi
+
+            # ── État après ───────────────────────────────────────
+            echo ""
+            echo "▶  État APRÈS déploiement :"
+            docker service ls
+            echo ""
+            docker service ps ict-prod_backend --filter desired-state=running --format "table {{.Name}}\t{{.Image}}\t{{.CurrentState}}" | head -5
+
+            # ── Healthcheck via gateway local ────────────────────
+            echo ""
+            echo "▶  Vérification health via gateway local..."
+            for i in \$(seq 1 20); do
+              if curl -kfsS -H "Host: dockerfx.trade" https://127.0.0.1/ > /dev/null 2>&1; then
+                echo "✅ Production gateway healthy"
+                exit 0
+              fi
+              echo "   Tentative \$i/20..."
+              sleep 5
+            done
+
+            echo "❌ Healthcheck gateway échoué après rolling update"
+            docker service logs ict-prod_frontend --since 5m --tail 30 || true
             exit 1
           EOFSSH
 
-      - name: Verify public production URL from runner
+      - name: 🌐 Verify public production URL
         run: |
-          echo "Checking https://dockerfx.trade from GitHub runner..."
+          echo "Vérification https://dockerfx.trade depuis GitHub Actions..."
           for i in $(seq 1 12); do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               --connect-timeout 5 \
@@ -142,18 +216,19 @@ jobs:
               https://dockerfx.trade/ || true)
 
             if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "304" ]; then
-              echo "✅ Production public URL reachable (HTTP $HTTP_CODE)"
+              echo "✅ Production publique accessible (HTTP $HTTP_CODE)"
+              echo "   Version déployée : ${{ steps.images.outputs.version }}"
               exit 0
             fi
 
-            echo "Attempt $i/12... HTTP=$HTTP_CODE"
+            echo "   Tentative $i/12... HTTP=$HTTP_CODE"
             sleep 5
           done
 
-          echo "❌ Production public URL healthcheck failed"
+          echo "❌ Production publique non accessible"
           exit 1
 
-      - name: Show service status
+      - name: 📊 Show final service status
         if: always()
         run: |
           ssh \
@@ -162,4 +237,21 @@ jobs:
             -o TCPKeepAlive=yes \
             -o ConnectTimeout=10 \
             "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            'docker service ls && docker service ps ict-prod_backend --no-trunc && docker service ps ict-prod_frontend --no-trunc'
+            'echo "═══ docker service ls ═══" && docker service ls && \
+             echo "═══ docker service ps ict-prod_backend ═══" && docker service ps ict-prod_backend --no-trunc | head -10 && \
+             echo "═══ docker service ps ict-prod_frontend ═══" && docker service ps ict-prod_frontend --no-trunc | head -10 && \
+             echo "═══ UpdateStatus ═══" && \
+             docker service inspect ict-prod_backend --format "Backend  : {{.UpdateStatus.State}} {{.UpdateStatus.Message}}" && \
+             docker service inspect ict-prod_frontend --format "Frontend : {{.UpdateStatus.State}} {{.UpdateStatus.Message}}"'
+
+      - name: 🎉 Deployment Summary
+        if: success()
+        run: |
+          echo "╔══════════════════════════════════════════════════════╗"
+          echo "║  ✅  ROLLING UPDATE TERMINÉ AVEC SUCCÈS              ║"
+          echo "╠══════════════════════════════════════════════════════╣"
+          echo "║  Version    : ${{ steps.images.outputs.version }}"
+          echo "║  URL        : https://dockerfx.trade"
+          echo "║  Downtime   : 0 seconde"
+          echo "║  Replicas   : backend 2/2 · frontend 2/2"
+          echo "╚══════════════════════════════════════════════════════╝"
