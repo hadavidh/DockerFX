@@ -2,12 +2,12 @@
 /**
  * auth.js — Middleware d'authentification JWT
  * Login/Password stockés dans .env
- * Token JWT valide    24h
+ * Token JWT valide 24h
  */
 
 const crypto = require('crypto')
 
-const LOGIN    = process.env.DASHBOARD_LOGIN   
+const LOGIN    = process.env.DASHBOARD_LOGIN    
 const PASSWORD = process.env.DASHBOARD_PASSWORD 
 const SECRET   = process.env.JWT_SECRET         || crypto.randomBytes(32).toString('hex')
 
