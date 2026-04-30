@@ -6,6 +6,8 @@ on:
     workflows: ["Build Staging"]
     types:
       - completed
+    branches:
+      - develop
 
 concurrency:
   group: staging-deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
@@ -22,6 +24,7 @@ jobs:
     if: >
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'success'
+
 
     steps:
       - name: Compute image tags
@@ -69,7 +72,7 @@ jobs:
             docker compose -p staging -f docker-compose.staging.yml up -d
 
             echo "Waiting backend health on port 3002..."
-            for i in $(seq 1 20); do
+            for i in \$(seq 1 20); do
               if docker compose -p staging -f docker-compose.staging.yml exec -T backend wget -qO- http://127.0.0.1:3002/health > /dev/null 2>&1; then
                 echo "✅ Backend healthy"
                 break
@@ -79,7 +82,7 @@ jobs:
             done
 
             echo "Waiting staging origin on 127.0.0.1:8080..."
-            for i in $(seq 1 20); do
+            for i in \$(seq 1 20); do
               if curl -fsS http://127.0.0.1:8080/health > /dev/null 2>&1; then
                 echo "✅ Staging origin reachable on 8080"
                 break
@@ -89,7 +92,7 @@ jobs:
             done
 
             echo "Waiting staging gateway..."
-            for i in $(seq 1 20); do
+            for i in \$(seq 1 20); do
               if curl -kfsS -H "Host: staging.dockerfx.trade" https://127.0.0.1/ > /dev/null 2>&1; then
                 echo "✅ Staging gateway reachable"
                 exit 0
@@ -107,7 +110,7 @@ jobs:
       - name: Verify public staging URL from runner
         run: |
           echo "Checking https://staging.dockerfx.trade from GitHub runner..."
-          for i in $(seq 1 12); do
+          for i in \$(seq 1 6); do
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
               --connect-timeout 5 \
               --max-time 10 \
