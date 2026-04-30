@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     # Déclenché uniquement si :
     # 1. CI-tests est vert
-    # 2. Le commit vient de la branche develop (filtre dans if au lieu de branches:)
+    # 2. Le commit vient de la branche develop (filtre dans if au lieu de branches:) dddd
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_branch == 'develop'
