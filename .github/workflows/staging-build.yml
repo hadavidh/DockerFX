@@ -1,13 +1,12 @@
 name: Build Staging
 
 on:
-  workflow_run:
-    workflows: ["CI - Robot Tests"]
-    types:
-      - completed
+  push:
+    branches:
+      - develop
 
 concurrency:
-  group: staging-build-${{ github.event.workflow_run.head_branch }}
+  group: staging-build-${{ github.ref_name }}
   cancel-in-progress: true
 
 permissions:
@@ -17,15 +16,10 @@ jobs:
   build-staging:
     name: 🐳 Build & Push Staging
     runs-on: ubuntu-latest
-    if: >
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.head_branch == 'develop'
 
     steps:
-      - name: Checkout exact tested commit
+      - name: Checkout commit
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Login DockerHub
         uses: docker/login-action@v3
@@ -39,7 +33,7 @@ jobs:
       - name: Compute image tags
         id: meta
         run: |
-          SHA_SHORT="$(echo "${{ github.event.workflow_run.head_sha }}" | cut -c1-7)"
+          SHA_SHORT="$(echo "${{ github.sha }}" | cut -c1-7)"
           echo "sha_short=$SHA_SHORT" >> "$GITHUB_OUTPUT"
           echo "backend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend" >> "$GITHUB_OUTPUT"
           echo "frontend_image=${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-frontend" >> "$GITHUB_OUTPUT"
