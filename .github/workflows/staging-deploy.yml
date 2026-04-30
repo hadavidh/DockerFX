@@ -6,8 +6,6 @@ on:
     workflows: ["Build Staging"]
     types:
       - completed
-    branches:
-      - develop
 
 concurrency:
   group: staging-deploy-${{ github.event.workflow_run.head_branch || github.ref_name }}
@@ -21,7 +19,10 @@ jobs:
     name: 🚀 Deploy Staging Gateway
     runs-on: ubuntu-latest
     environment: staging
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'develop')
 
     steps:
       - name: Compute image tags
@@ -105,7 +106,6 @@ jobs:
           EOFSSH
 
       - name: Verify public staging URL from runner
-        continue-on-error: true
         run: |
           echo "Checking https://staging.dockerfx.trade from GitHub runner..."
           for i in $(seq 1 12); do
@@ -123,7 +123,8 @@ jobs:
             sleep 5
           done
 
-          echo "⚠️  Non accessible depuis le runner (Cloudflare bloque les IPs GitHub Actions — normal)"
+          echo "❌ Staging public URL healthcheck failed"
+          exit 1
 
       - name: Show running containers
         if: always()
