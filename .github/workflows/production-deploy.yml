@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   deploy-production:
-    name: 🚀 Deploy Production — Rolling Update
+    name: Déploiement production avec rolling update
     runs-on: ubuntu-latest
     environment: production
     if: >
@@ -30,38 +30,38 @@ jobs:
 
     steps:
 
-      - name: Resolve version (workflow_dispatch)
+      - name: Résoudre la version depuis workflow_dispatch
         id: version_dispatch
         if: github.event_name == 'workflow_dispatch'
         run: |
           V="${{ github.event.inputs.version }}"
           echo "$V" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-            || (echo "❌ Version invalide: $V" && exit 1)
+            || (echo "Version invalide: $V" && exit 1)
           echo "value=$V" >> "$GITHUB_OUTPUT"
 
-      - name: Checkout (workflow_run)
+      - name: Récupérer le code depuis workflow_run
         if: github.event_name == 'workflow_run'
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
 
-      - name: Resolve version (workflow_run)
+      - name: Résoudre la version depuis workflow_run
         id: version_run
         if: github.event_name == 'workflow_run'
         run: |
           V="$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n1)"
-          test -n "$V" || (echo "❌ Tag introuvable sur ce commit" && exit 1)
+          test -n "$V" || (echo "Tag introuvable sur ce commit" && exit 1)
           echo "value=$V" >> "$GITHUB_OUTPUT"
 
-      - name: Setup SSH
+      - name: Configurer la connexion SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
 
-      - name: 🔄 Rolling Update Production
+      - name: Effectuer le rolling update en production
         run: |
           VERSION="${{ steps.version_dispatch.outputs.value }}${{ steps.version_run.outputs.value }}"
           BACKEND_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/ict-trading-backend:${VERSION}"
@@ -69,13 +69,13 @@ jobs:
           DOCKERHUB_TOKEN="${{ secrets.DOCKERHUB_TOKEN }}"
           DOCKERHUB_USER="${{ secrets.DOCKERHUB_USERNAME }}"
 
-          echo "▶  Version  : ${VERSION}"
-          echo "▶  Backend  : ${BACKEND_IMAGE}"
-          echo "▶  Frontend : ${FRONTEND_IMAGE}"
+          echo "Version  : ${VERSION}"
+          echo "Backend  : ${BACKEND_IMAGE}"
+          echo "Frontend : ${FRONTEND_IMAGE}"
 
-          [ -z "${VERSION}"       ] && echo "❌ VERSION vide"       && exit 1
-          [ -z "${DOCKERHUB_USER}"] && echo "❌ DOCKERHUB_USERNAME secret manquant" && exit 1
-          [ -z "${BACKEND_IMAGE}" ] && echo "❌ BACKEND_IMAGE vide" && exit 1
+          [ -z "${VERSION}" ] && echo "VERSION vide" && exit 1
+          [ -z "${DOCKERHUB_USER}" ] && echo "DOCKERHUB_USERNAME secret manquant" && exit 1
+          [ -z "${BACKEND_IMAGE}" ] && echo "BACKEND_IMAGE vide" && exit 1
 
           ssh \
             -o ServerAliveInterval=30 \
@@ -90,7 +90,7 @@ jobs:
 
             echo ""
             echo "╔══════════════════════════════════════════════════════════╗"
-            echo "║  🔄  ROLLING UPDATE — ${VERSION}"
+            echo "║  ROLLING UPDATE — ${VERSION}"
             echo "║  Backend  : ${BACKEND_IMAGE}"
             echo "║  Frontend : ${FRONTEND_IMAGE}"
             echo "║  start-first · parallelism 1 · rollback auto            ║"
@@ -98,20 +98,20 @@ jobs:
             echo ""
 
             docker service inspect ict-prod_backend  >/dev/null 2>&1 \
-              || (echo "❌ ict-prod_backend introuvable — déployer la stack d'abord" && exit 1)
+              || (echo "ict-prod_backend introuvable — déployer la stack d'abord" && exit 1)
             docker service inspect ict-prod_frontend >/dev/null 2>&1 \
-              || (echo "❌ ict-prod_frontend introuvable — déployer la stack d'abord" && exit 1)
+              || (echo "ict-prod_frontend introuvable — déployer la stack d'abord" && exit 1)
 
-            echo "▶  Pull images..."
+            echo "Pull images..."
             docker pull "${BACKEND_IMAGE}"
             docker pull "${FRONTEND_IMAGE}"
 
-            echo "▶  État AVANT :"
+            echo "État AVANT :"
             docker service ps ict-prod_backend --filter desired-state=running \
               --format "table {{.Name}}\t{{.Image}}\t{{.CurrentState}}" | head -5
 
             echo ""
-            echo "🔄 Rolling update BACKEND..."
+            echo "Rolling update BACKEND..."
             docker service update \
               --image "${BACKEND_IMAGE}" \
               --update-parallelism 1 \
@@ -123,7 +123,7 @@ jobs:
               ict-prod_backend
 
             echo ""
-            echo "🔄 Rolling update FRONTEND..."
+            echo "Rolling update FRONTEND..."
             docker service update \
               --image "${FRONTEND_IMAGE}" \
               --update-parallelism 1 \
@@ -135,13 +135,13 @@ jobs:
               ict-prod_frontend
 
             echo ""
-            echo "▶  Attente convergence (max 3 min)..."
+            echo "Attente convergence max 3 min..."
             CONVERGED=false
             for i in \$(seq 1 36); do
               BR=\$(docker service ls --filter name=ict-prod_backend  --format "{{.Replicas}}")
               FR=\$(docker service ls --filter name=ict-prod_frontend --format "{{.Replicas}}")
               if [ "\$BR" = "2/2" ] && [ "\$FR" = "2/2" ]; then
-                echo "✅ Convergence 2/2"
+                echo "Convergence 2/2"
                 CONVERGED=true
                 break
               fi
@@ -152,25 +152,25 @@ jobs:
             SB=\$(docker service inspect ict-prod_backend  --format '{{.UpdateStatus.State}}' 2>/dev/null || echo "")
             SF=\$(docker service inspect ict-prod_frontend --format '{{.UpdateStatus.State}}' 2>/dev/null || echo "")
             if [ "\$SB" = "rollback_completed" ] || [ "\$SF" = "rollback_completed" ]; then
-              echo "❌ ROLLBACK AUTO déclenché — la nouvelle version a échoué"
+              echo "ROLLBACK AUTO déclenché — la nouvelle version a échoué"
               docker service logs ict-prod_backend --since 5m --tail 50 || true
               exit 1
             fi
 
             if [ "\$CONVERGED" != "true" ]; then
-              echo "❌ Replicas non convergés"
+              echo "Replicas non convergés"
               docker service ps ict-prod_backend  --no-trunc | head -8
               docker service ps ict-prod_frontend --no-trunc | head -8
               exit 1
             fi
 
-            echo "✅ 2/2 backend · 2/2 frontend"
+            echo "2/2 backend · 2/2 frontend"
             echo ""
-            echo "▶  État APRÈS :"
+            echo "État APRÈS :"
             docker service ls
 
             echo ""
-            echo "▶  Healthcheck gateway..."
+            echo "Healthcheck gateway..."
             HEALTHY=false
             for i in \$(seq 1 20); do
               if curl -kfsS -H "Host: dockerfx.trade" https://127.0.0.1/ > /dev/null 2>&1; then
@@ -182,28 +182,28 @@ jobs:
             done
 
             if [ "\$HEALTHY" != "true" ]; then
-              echo "❌ Gateway unhealthy"
+              echo "Gateway unhealthy"
               docker service logs ict-prod_frontend --since 5m --tail 30 || true
               exit 1
             fi
 
-            echo "✅ Gateway healthy — déploiement OK"
+            echo "Gateway healthy — déploiement OK"
           EOFSSH
 
-      - name: 🌐 Verify public URL
+      - name: Vérifier l’URL publique
         continue-on-error: true
         run: |
           for i in $(seq 1 6); do
             HTTP=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 --max-time 10 \
               https://dockerfx.trade/ || true)
             [ "$HTTP" = "200" ] || [ "$HTTP" = "304" ] \
-              && echo "✅ https://dockerfx.trade accessible (HTTP $HTTP)" && exit 0
+              && echo "https://dockerfx.trade accessible (HTTP $HTTP)" && exit 0
             echo "   Tentative $i/6... HTTP=$HTTP"
             sleep 5
           done
-          echo "⚠️  Non accessible depuis le runner (Cloudflare bloque les IPs GitHub Actions — normal)"
+          echo "Non accessible depuis le runner GitHub Actions. Cela peut être normal si Cloudflare bloque les IPs GitHub Actions."
 
-      - name: 📊 Final status
+      - name: Afficher le statut final
         if: always()
         run: |
           ssh \
@@ -214,12 +214,12 @@ jobs:
              echo "--- backend ---"  && docker service ps ict-prod_backend  --no-trunc | head -8 && \
              echo "--- frontend ---" && docker service ps ict-prod_frontend --no-trunc | head -8'
 
-      - name: 🎉 Deployment Summary
+      - name: Afficher le résumé du déploiement
         if: success()
         run: |
           VERSION="${{ steps.version_dispatch.outputs.value }}${{ steps.version_run.outputs.value }}"
           echo "╔══════════════════════════════════════════════════════╗"
-          echo "║  ✅  ROLLING UPDATE TERMINÉ                          ║"
+          echo "║  ROLLING UPDATE TERMINÉ                             ║"
           echo "╠══════════════════════════════════════════════════════╣"
           echo "║  Version  : ${VERSION}"
           echo "║  URL      : https://dockerfx.trade"
