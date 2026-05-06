@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   deploy-production:
-    name: Déploiement production avec rolling update
+    name: Déploiement production avec  rolling update
     runs-on: ubuntu-latest
     environment: production
     if: >
