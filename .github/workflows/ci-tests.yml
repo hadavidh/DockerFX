@@ -1,4 +1,4 @@
-name: CI - Robot Tests
+name: CI - Tests Robot
 
 on:
   push:
@@ -28,15 +28,15 @@ jobs:
   # JOB 1 — LINT
   # ══════════════════════════════════════════════════════════════
   lint:
-    name: 🔍 Lint ESLint
+    name: Analyse ESLint
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
-      - name: Checkout
+      - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Configurer Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -45,19 +45,19 @@ jobs:
             backend/package-lock.json
             frontend/package-lock.json
 
-      - name: Install backend deps
+      - name: Installer les dépendances backend
         working-directory: backend
         run: npm ci
 
-      - name: Lint backend
+      - name: Analyser le code backend avec ESLint
         working-directory: backend
         run: npm run lint
 
-      - name: Install frontend deps
+      - name: Installer les dépendances frontend
         working-directory: frontend
         run: npm ci
 
-      - name: Lint frontend
+      - name: Analyser le code frontend avec ESLint
         working-directory: frontend
         run: npm run lint
 
@@ -65,16 +65,16 @@ jobs:
   # JOB 2 — TRIVY SCAN
   # ══════════════════════════════════════════════════════════════
   trivy-scan:
-    name: 🔒 Trivy Scan
+    name: Analyse de sécurité Trivy
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: lint
 
     steps:
-      - name: Checkout
+      - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Scan sécurité du repo
+      - name: Analyser la sécurité du dépôt
         uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: fs
@@ -88,7 +88,7 @@ jobs:
   # JOB 3 — ROBOT TESTS
   # ══════════════════════════════════════════════════════════════
   robot-tests:
-    name: 🤖 Robot Tests
+    name: Tests Robot Framework
     runs-on: ubuntu-latest
     timeout-minutes: 40
     needs:
@@ -101,15 +101,15 @@ jobs:
       PYTHONUNBUFFERED: "1"
 
     steps:
-      - name: Checkout
+      - name: Récupérer le code
         uses: actions/checkout@v4
 
-      - name: Setup Python
+      - name: Configurer Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Robot dependencies
+      - name: Installer les dépendances Robot Framework
         run: |
           python -m pip install --upgrade pip
           pip install \
@@ -120,7 +120,7 @@ jobs:
             robotframework-pabot==2.18.0 \
             webdriver-manager
 
-      - name: Install Chrome + tools
+      - name: Installer Chrome et les outils
         run: |
           wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
@@ -131,15 +131,15 @@ jobs:
           google-chrome --version
           chromedriver --version
 
-      - name: Validate required secrets
+      - name: Valider les secrets requis
         env:
           RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
           RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
         run: |
-          test -n "$RF_USERNAME" || (echo "Missing secret: TEST_DASHBOARD_LOGIN" && exit 1)
-          test -n "$RF_PASSWORD" || (echo "Missing secret: TEST_DASHBOARD_PASSWORD" && exit 1)
+          test -n "$RF_USERNAME" || (echo "Secret manquant: TEST_DASHBOARD_LOGIN" && exit 1)
+          test -n "$RF_PASSWORD" || (echo "Secret manquant: TEST_DASHBOARD_PASSWORD" && exit 1)
 
-      - name: Prepare Robot variables
+      - name: Préparer les variables Robot Framework
         env:
           RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
           RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
@@ -149,10 +149,10 @@ jobs:
           with open('/tmp/rf_vars.py', 'w', encoding='utf-8') as f:
               f.write("USERNAME_VALUE = " + repr(os.environ["RF_USERNAME"]) + "\n")
               f.write("PASSWORD_VALUE = " + repr(os.environ["RF_PASSWORD"]) + "\n")
-          print("Created /tmp/rf_vars.py")
+          print("Fichier /tmp/rf_vars.py créé")
           PY
 
-      - name: Start CI environment
+      - name: Démarrer l’environnement CI
         env:
           DASHBOARD_LOGIN: ${{ secrets.TEST_DASHBOARD_LOGIN }}
           DASHBOARD_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
@@ -168,64 +168,64 @@ jobs:
         run: |
           docker compose -f docker-compose.ci.yml up -d --build
 
-      - name: Wait backend
+      - name: Attendre le backend
         run: |
           for i in $(seq 1 40); do
             if curl -sf http://127.0.0.1:3003/health > /dev/null; then
-              echo "Backend ready"
+              echo "Backend prêt"
               exit 0
             fi
-            echo "Waiting backend ($i/40)..."
+            echo "Attente du backend ($i/40)..."
             docker compose -f docker-compose.ci.yml ps || true
             sleep 3
           done
           docker compose -f docker-compose.ci.yml logs --no-color backend
           exit 1
 
-      - name: Debug backend env
+      - name: Déboguer l’environnement backend
         run: |
           docker compose -f docker-compose.ci.yml exec -T backend sh -c 'echo "LOGIN=$DASHBOARD_LOGIN"; echo "PASS_LEN=${#DASHBOARD_PASSWORD}"'
 
-      - name: Debug login API backend direct
+      - name: Déboguer la connexion API directe au backend
         env:
           RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
           RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
         run: |
-          echo "=== direct login API ==="
+          echo "=== Connexion API directe ==="
           curl -i -s -X POST http://127.0.0.1:3003/api/auth/login \
             -H "Content-Type: application/json" \
             -d "{\"email\":\"$RF_USERNAME\",\"password\":\"$RF_PASSWORD\"}"
 
-      - name: Wait frontend
+      - name: Attendre le frontend
         run: |
           for i in $(seq 1 40); do
             if curl -sf http://127.0.0.1:8085 > /dev/null; then
-              echo "Frontend ready"
+              echo "Frontend prêt"
               exit 0
             fi
-            echo "Waiting frontend ($i/40)..."
+            echo "Attente du frontend ($i/40)..."
             docker compose -f docker-compose.ci.yml ps || true
             sleep 3
           done
           docker compose -f docker-compose.ci.yml logs --no-color frontend
           exit 1
 
-      - name: Debug login API via frontend proxy
+      - name: Déboguer la connexion API via le proxy frontend
         env:
           RF_USERNAME: ${{ secrets.TEST_DASHBOARD_LOGIN }}
           RF_PASSWORD: ${{ secrets.TEST_DASHBOARD_PASSWORD }}
         run: |
-          echo "=== frontend /api/auth/login ==="
+          echo "=== Frontend /api/auth/login ==="
           curl -i -s -X POST http://127.0.0.1:8085/api/auth/login \
             -H "Content-Type: application/json" \
             -d "{\"email\":\"$RF_USERNAME\",\"password\":\"$RF_PASSWORD\"}"
 
-      - name: Prepare reports
+      - name: Préparer les rapports
         run: |
           rm -rf reports
           mkdir -p reports/api reports/ui reports/final
 
-      - name: Run API tests
+      - name: Exécuter les tests API
         run: |
           python -m robot \
             --nostatusrc \
@@ -238,7 +238,7 @@ jobs:
             --variablefile /tmp/rf_vars.py \
             tests/robot/suites/api_tests.robot
 
-      - name: Run UI tests
+      - name: Exécuter les tests UI
         run: |
           python -m robot \
             --nostatusrc \
@@ -253,7 +253,7 @@ jobs:
             --variablefile /tmp/rf_vars.py \
             tests/robot/suites/dashboard_tests.robot
 
-      - name: Merge reports and fail on any failed test
+      - name: Fusionner les rapports et échouer en cas de test en erreur
         run: |
           python -m robot.rebot \
             --outputdir reports/final \
@@ -261,16 +261,16 @@ jobs:
             --log log.html \
             --report report.html \
             --xunit xunit.xml \
-            --name "Robot Full Suite" \
+            --name "Suite complète Robot" \
             reports/api/output.xml \
             reports/ui/output.xml
 
-      - name: List generated reports
+      - name: Lister les rapports générés
         if: always()
         run: |
           find reports -type f | sort
 
-      - name: Upload final reports
+      - name: Publier les rapports finaux
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -282,14 +282,14 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
-      - name: Docker logs backend
+      - name: Afficher les logs Docker du backend
         if: always()
         run: docker compose -f docker-compose.ci.yml logs --no-color backend
 
-      - name: Docker logs frontend
+      - name: Afficher les logs Docker du frontend
         if: always()
         run: docker compose -f docker-compose.ci.yml logs --no-color frontend
 
-      - name: Destroy CI environment
+      - name: Supprimer l’environnement CI
         if: always()
         run: docker compose -f docker-compose.ci.yml down -v --remove-orphans
